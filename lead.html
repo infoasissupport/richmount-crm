@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lead · Rich Mount ERP</title>
+  <link rel="icon" href="images/rich-mount-logo.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="lead">
+<div class="app" id="app">
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation"></aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+
+    <main class="content" id="content">
+      <section class="page-head" id="pageHead"></section>
+      <!-- Everything below the page header scrolls inside this box -->
+      <div class="dash-scroll">
+
+        <section class="card status-bar">
+          <ol class="stepper wide" id="leadStepper">
+            <li data-step="new"><span>1</span>New Lead</li>
+            <li data-step="draft"><span>2</span>Draft Quotation</li>
+            <li data-step="sent"><span>3</span>Sent Quotation</li>
+            <li data-step="awarded"><span>4</span>Awarded</li>
+            <li data-step="project"><span>5</span>Project</li>
+          </ol>
+        </section>
+
+        <div class="detail-grid">
+          <section class="card">
+            <header class="card-head"><h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><circle cx="12" cy="12.5" r="2.2"/><path d="M8.5 18.5a3.5 3.5 0 0 1 7 0"/></svg></span>Lead Details</h2><span id="leadStatus"></span></header>
+            <dl class="kv" id="leadKv">
+              <dt>Lead Number</dt><dd data-f="leadNumber"></dd>
+              <dt>Lead Date</dt><dd data-f="leadDate"></dd>
+              <dt>Customer / Company</dt><dd data-f="company"></dd>
+              <dt>RFQ / PR Number</dt><dd data-f="rfqNumber"></dd>
+              <dt>Project Subject</dt><dd data-f="subject"></dd>
+              <dt>Department</dt><dd data-f="department"></dd>
+              <dt>Branch</dt><dd data-f="branch"></dd>
+              <dt>Assigned Engineer</dt><dd data-f="engineer"></dd>
+              <dt>Source</dt><dd data-f="source"></dd>
+              <dt>Estimated Value</dt><dd data-f="estValue"></dd>
+            </dl>
+          </section>
+
+          <section class="card">
+            <header class="card-head"><h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg></span>Contact &amp; Notes</h2></header>
+            <dl class="kv" id="contactKv">
+              <dt>Contact Person</dt><dd data-f="contact"></dd>
+              <dt>Phone</dt><dd data-f="phone"></dd>
+              <dt>Email</dt><dd data-f="email"></dd>
+            </dl>
+            <div class="dr-section"><h5>Notes</h5><p class="notes" id="leadNotes"></p></div>
+            <div class="dr-section"><h5>Attachments</h5><ul class="file-list" id="leadAtt"></ul></div>
+          </section>
+        </div>
+
+        <div class="detail-grid">
+          <section class="card" id="leadQuotes"></section>
+          <section class="card">
+            <header class="card-head"><h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>Activity Timeline</h2></header>
+            <ul class="events" id="leadTimeline"></ul>
+          </section>
+        </div>
+
+        <template id="tplEvent"><li class="ev"><span class="ev-dot"></span><div><strong data-f="text"></strong><small><span data-f="time"></span> · <span data-f="by"></span></small></div></li></template>
+        <template id="tplFile"><li><svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg><span data-f="name"></span></li></template>
+      </div>
+      <footer class="page-foot"><span>© 2026 Rich Mount ERP</span><span>Designed by ATTechinfoasis</span></footer>
+    </main>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/pages/lead.js"></script>
+</body>
+</html>

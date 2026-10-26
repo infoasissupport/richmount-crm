@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project · Rich Mount ERP</title>
+  <link rel="icon" href="images/rich-mount-logo.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="project">
+<div class="app" id="app">
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation"></aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+
+    <main class="content" id="content">
+      <section class="page-head" id="pageHead"></section>
+      <!-- Everything below the page header scrolls inside this box -->
+      <div class="dash-scroll">
+
+        <section class="card status-bar">
+          <ol class="stepper wide" id="projStepper">
+            <li data-step="awarded"><span>1</span>Awarded</li>
+            <li data-step="popending"><span>2</span>PO Pending</li>
+            <li data-step="open"><span>3</span>Open</li>
+            <li data-step="inprogress"><span>4</span>In Progress</li>
+            <li data-step="completed"><span>5</span>Work Completed</li>
+            <li data-step="invoicepending"><span>6</span>Invoice Pending</li>
+            <li data-step="closed"><span>7</span>Closed</li>
+          </ol>
+        </section>
+        <div class="info-box" id="projBanner" hidden></div>
+
+        <section class="kpi-grid four" id="projStats">
+          <div class="kpi static"><span class="kpi-top"><span class="kpi-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg></span></span><span class="kpi-value" data-f="value"></span><span class="kpi-label">PO / Contract Value</span><span class="kpi-note" data-f="valueSub"></span></div>
+          <div class="kpi static"><span class="kpi-top"><span class="kpi-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg></span></span><span class="kpi-value" data-f="expenses"></span><span class="kpi-label">Project Expenses</span><span class="kpi-note" data-f="expensesSub"></span></div>
+          <div class="kpi static"><span class="kpi-top"><span class="kpi-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M14 11h-3a1.5 1.5 0 0 0 0 3h2a1.5 1.5 0 0 1 0 3H9.5M12 9.5v1.5M12 17v1.5"/></svg></span></span><span class="kpi-value" data-f="invoiced"></span><span class="kpi-label">Invoiced</span><span class="kpi-note" data-f="invoicedSub"></span></div>
+          <div class="kpi static"><span class="kpi-top"><span class="kpi-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span></span><span class="kpi-value" data-f="pending"></span><span class="kpi-label">Pending Approvals</span><span class="kpi-note">Expenses awaiting accountant</span></div>
+        </section>
+
+        <div class="detail-grid">
+          <section class="card">
+            <header class="card-head"><h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M12 11h4M12 16h4M8 11h.01M8 16h.01"/></svg></span>Project Details</h2><span id="projStatus"></span></header>
+            <dl class="kv" id="projKv">
+              <dt>Project Number</dt><dd data-f="projectNumber"></dd>
+              <dt>Customer</dt><dd data-f="customer"></dd>
+              <dt>Quotation</dt><dd><a data-f="quote" href="#"></a></dd>
+              <dt>Lead</dt><dd><a data-f="lead" href="#"></a></dd>
+              <dt>Branch</dt><dd data-f="branch"></dd>
+              <dt>Engineer</dt><dd data-f="engineer"></dd>
+              <dt>RFQ / PR Number</dt><dd data-f="rfq"></dd>
+              <dt>PO Number</dt><dd data-f="po"></dd>
+              <dt>Start Date</dt><dd data-f="start"></dd>
+              <dt>Work Completed</dt><dd data-f="completed"></dd>
+              <dt>Closed</dt><dd data-f="closed"></dd>
+              <dt>Zoho Books</dt><dd data-f="zoho"></dd>
+            </dl>
+          </section>
+          <section class="card">
+            <header class="card-head"><h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></span>Description &amp; Documents</h2></header>
+            <p class="notes" id="projDesc"></p>
+            <div class="dr-section" id="completionWrap" hidden><h5>Work Completion Report</h5><p class="notes" id="projCompletion"></p></div>
+            <div class="dr-section"><h5>Documents</h5><ul class="file-list" id="projDocs"></ul></div>
+          </section>
+        </div>
+
+        <section class="card" id="projExpenses"></section>
+
+        <div class="detail-grid">
+          <section class="card" id="projInvoices"></section>
+          <section class="card">
+            <header class="card-head"><h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>Activity Timeline</h2></header>
+            <ul class="events" id="projTimeline"></ul>
+          </section>
+        </div>
+
+        <template id="tplEvent"><li class="ev"><span class="ev-dot"></span><div><strong data-f="text"></strong><small><span data-f="time"></span> · <span data-f="by"></span></small></div></li></template>
+        <template id="tplDoc"><li><svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg><span data-f="name"></span><small data-f="kind"></small></li></template>
+      </div>
+      <footer class="page-foot"><span>© 2026 Rich Mount ERP</span><span>Designed by ATTechinfoasis</span></footer>
+    </main>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/pages/project.js"></script>
+</body>
+</html>

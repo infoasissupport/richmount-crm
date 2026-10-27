@@ -1032,7 +1032,7 @@ body.compact .content { gap: 12px; }
   .table.cards td::before { content: attr(data-label); float: left; margin-right: 12px; color: var(--muted); font-weight: 500; text-align: left; }
   .table.cards td.dt-no { display: none; }
   .table.cards .cell-who { display: inline-flex; }
-  .table.cards .cell-text { display: inline-flex; text-align: right; }
+  .table.cards .cell-text { display: inline-flex; text-align: left; }
   .table.cards td small { display: inline; margin-left: 4px; }
   .table.cards td[data-label=""]::before { content: none; }
   .table.cards td:first-child { padding-bottom: 8px; margin-bottom: 1px; border-bottom: 1px solid var(--line-soft); font-weight: 600; color: var(--text); }
@@ -1137,6 +1137,12 @@ body.compact .content { gap: 12px; }
 }
 
 @media (max-width: 768px) {
+  .page-head{
+    flex-direction: column;
+  }
+  .page-actions{
+    gap: 6px;
+  }
   .content { padding: 16px; }
   .page-foot { margin: auto -16px -16px; padding: 10px 16px; }
   .page-head h1 { font-size: 24px; }
@@ -1237,7 +1243,7 @@ a.crumb:hover { text-decoration: underline; }
   .page-actions .btn-lg { flex: 1; }
 }
 @media (max-width: 560px) {
-  .kpi-grid.four { grid-template-columns: minmax(0, 1fr); }
+  .kpi-grid.four { grid-template-columns:1fr 1fr; }
 }
 
 /* =========================================================
@@ -1390,6 +1396,7 @@ a.crumb:hover { text-decoration: underline; }
 
 /* assign engineers board */
 .table tbody tr.changed td { background: var(--amber-soft); }
+.assign-table .select-wrap.mini select { min-width: 170px; height: 34px; font-size: 13px; border-radius: 8px; }
 
 /* sidebar flyout (desktop sub-menus) */
 .nav-item.flyout-open:not(.active) { background: rgba(255, 255, 255, .08); }

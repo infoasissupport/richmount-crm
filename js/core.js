@@ -128,7 +128,7 @@
   /* navigation: every item and sub-item declares the permission it needs */
   const NAV = [
     { id: 'dashboard', label: 'Dashboard', icon: 'nav-dashboard', href: 'index.html', perm: 'dashboard.view' },
-    { id: 'leads', label: 'Lead Management', icon: 'nav-leads', href: 'leads.html', perm: 'leads.view', children: [['All Leads', 'leads.html', 'leads.view'], ['Add Lead', 'leads.html?new=1', 'leads.create'], ['Assign Engineer', 'leads.html?assign=1', 'leads.assign'], ['Lead Pipeline', 'index.html#pipeline', 'dashboard.view']] },
+    { id: 'leads', label: 'Lead Management', icon: 'nav-leads', href: 'leads.html', perm: 'leads.view', children: [['All Leads', 'leads.html', 'leads.view'], ['Add Lead', 'leads.html?new=1', 'leads.create'], ['Assign Engineer', 'leads.html?assign=1', 'leads.assign']] },
     { id: 'quotes', label: 'Quotations', icon: 'nav-quotes', href: 'quotations.html', perm: 'quotes.view', children: [['All Quotations', 'quotations.html', 'quotes.view'], ['Create Quotation', 'quotations.html?new=1', 'quotes.create'], ['Pending Approval', 'quotations.html?tab=pending', 'quotes.view'], ['Sent Quotations', 'quotations.html?tab=sent', 'quotes.view'], ['Awarded Quotes', 'quotations.html?tab=awarded', 'quotes.view']] },
     { id: 'projects', label: 'Projects', icon: 'hard-hat', href: 'projects.html', perm: 'projects.view', children: [['All Projects', 'projects.html', 'projects.view'], ['Create Project / PO', 'projects.html?tab=activation', 'projects.create'], ['In Progress', 'projects.html?tab=inprogress', 'projects.view'], ['Work Completed', 'projects.html?tab=completed', 'projects.view']] },
     { id: 'expenses', label: 'Expenses', icon: 'nav-expenses', href: 'expenses.html', perm: 'expenses.view', children: [['All Expenses', 'expenses.html', 'expenses.view'], ['Add Expense / Scan Receipt', 'expenses.html?new=1', 'expenses.create'], ['Cash in Hand', 'expenses.html?tab=cashinhand', 'expenses.view'], ['Internal Transfers', 'expenses.html?tab=transfers', 'transfers.view']] },
@@ -831,12 +831,15 @@
     if (!rows.length) { toast('There are no unquoted leads in the current filters.', 'info'); return; }
     const changes = {};
     const m = modal({
-      title: 'Assign Engineers', sub: `${rows.length} unquoted lead${rows.length === 1 ? '' : 's'} · ${scopeLabel()} — change the engineer on any row, then save.`, size: 'xl', noFocus: true,
-      body: `<div class="tm-toolbar"><label class="search-input">${icon('search', 'ic sm')}<input type="search" placeholder="Search leads..." data-q aria-label="Search leads"></label><span class="tm-count" data-count></span></div>
-        <div class="table-wrap tall"><table class="table cards"><thead><tr><th>Lead No</th><th>Lead Name</th><th>Subject</th><th>Branch</th><th>Created</th><th>Assigned Engineer</th></tr></thead><tbody>
-        ${rows.map(l => `<tr data-id="${l.id}" data-text="${esc((l.leadNumber + ' ' + l.name + ' ' + l.company + ' ' + l.subject).toLowerCase())}">
-          <td data-label="Lead No">${esc(l.leadNumber)}</td><td class="strong" data-label="Lead Name">${esc(l.name)}</td><td data-label="Subject">${esc(l.subject)}</td><td data-label="Branch">${esc(branchOf(l.branchId).short)}</td><td data-label="Created">${fmtDate(l.createdAt)}</td>
-          <td data-label="Assigned Engineer"><span class="select-wrap mini"><select data-lead="${l.id}" aria-label="Engineer for ${esc(l.name)}">${opts(engOpts(l.branchId), l.engineerId)}</select></span></td></tr>`).join('')}
+      title: 'Assign Engineers', size: 'xl', noFocus: true,
+      body: `<div class="tm-toolbar"><label class="search-input recent-search">${icon('search', 'ic sm')}<input type="search" placeholder="Search by name, company, subject..." data-q aria-label="Search leads"></label><span class="tm-count" data-count></span></div>
+        <div class="table-wrap tall"><table class="table cards assign-table"><thead><tr><th>Sl No</th><th>Lead No</th><th>Lead Name</th><th>Subject</th><th>Created ${icon('arrow-down', 'ic sm')}</th><th>Assigned Engineer</th></tr></thead><tbody>
+        ${rows.map((l, i) => `<tr data-id="${l.id}" data-text="${esc((l.leadNumber + ' ' + l.name + ' ' + l.company + ' ' + l.subject).toLowerCase())}">
+          <td class="dt-no" data-label="Sl No">${i + 1}</td><td data-label="Lead No">${esc(l.leadNumber)}</td>
+          <td class="strong" data-label="Lead Name"><span class="cell-who">${avatar(l.name)}<span class="cell-text">${esc(l.name)}<small>${esc(l.company)}</small></span></span></td>
+          <td data-label="Subject"><span class="cell-text">${esc(l.subject)}<small>${esc(deptName(l.department))}</small></span></td>
+          <td data-label="Created"><span class="cell-date">${icon('calendar', 'ic sm')}${fmtDate(l.createdAt)}</span></td>
+          <td data-label="Assigned Engineer"><span class="cell-who"><span data-av>${avatar(engName(l.engineerId))}</span><span class="select-wrap mini"><select data-lead="${l.id}" aria-label="Engineer for ${esc(l.name)}">${opts(engOpts(l.branchId), l.engineerId)}</select></span></span></td></tr>`).join('')}
         </tbody></table></div>`,
       foot: `<button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary" data-save disabled>${icon('check')}Save Assignments</button>`
     });
@@ -852,6 +855,7 @@
       if (!sel) return;
       const l = API.lead(sel.dataset.lead);
       if (sel.value === l.engineerId) delete changes[l.id]; else changes[l.id] = sel.value;
+      $('[data-av]', sel.closest('tr')).innerHTML = avatar(engName(sel.value));
       sel.closest('tr').classList.toggle('changed', !!changes[l.id]);
       sync();
     });

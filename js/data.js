@@ -52,12 +52,9 @@
   /* =======================================================
      Master data
      ======================================================= */
-  const countries = [{ id: 'UAE', name: 'UAE' }, { id: 'OMN', name: 'Oman' }];
+  const countries = [{ id: 'UAE', name: 'UAE' }];
   const branches = [
-    { id: 'dxb', name: 'Dubai Branch', short: 'Dubai', code: 'Branch 1', country: 'UAE', quoteFormat: 'Quote Format 1', weight: .4 },
-    { id: 'auh', name: 'Abu Dhabi Branch', short: 'Abu Dhabi', code: 'Branch 2', country: 'UAE', quoteFormat: 'Quote Format 2', weight: .27 },
-    { id: 'shj', name: 'Sharjah Branch', short: 'Sharjah', code: 'Branch 3', country: 'UAE', quoteFormat: 'Quote Format 3', weight: .18 },
-    { id: 'mct', name: 'Muscat Branch', short: 'Muscat', code: 'Branch 4', country: 'OMN', quoteFormat: 'Quote Format 4', weight: .15 }
+    { id: 'dxb', name: 'Dubai Branch', short: 'Dubai', code: 'Branch 1', country: 'UAE', quoteFormat: 'Quote Format 1', weight: 1 }
   ];
   const departments = [
     { id: 'construction', name: 'Construction', weight: .4 },
@@ -68,10 +65,10 @@
   const engineers = [
     { id: 'e1', name: 'Ali Khan', branchId: 'dxb', email: 'ali.khan@richmount.ae' },
     { id: 'e2', name: 'Ramesh Nair', branchId: 'dxb', email: 'ramesh.nair@richmount.ae' },
-    { id: 'e3', name: 'Faisal Ahmed', branchId: 'auh', email: 'faisal.ahmed@richmount.ae' },
-    { id: 'e4', name: 'Priya Menon', branchId: 'auh', email: 'priya.menon@richmount.ae' },
-    { id: 'e5', name: 'Sarah Thomas', branchId: 'shj', email: 'sarah.thomas@richmount.ae' },
-    { id: 'e6', name: 'Omar Haddad', branchId: 'mct', email: 'omar.haddad@richmount.ae' }
+    { id: 'e3', name: 'Faisal Ahmed', branchId: 'dxb', email: 'faisal.ahmed@richmount.ae' },
+    { id: 'e4', name: 'Priya Menon', branchId: 'dxb', email: 'priya.menon@richmount.ae' },
+    { id: 'e5', name: 'Sarah Thomas', branchId: 'dxb', email: 'sarah.thomas@richmount.ae' },
+    { id: 'e6', name: 'Omar Haddad', branchId: 'dxb', email: 'omar.haddad@richmount.ae' }
   ];
   engineers.forEach(e => { e.pettyCash = 'Petty Cash – ' + e.name; e.openingCash = 5000; });
 
@@ -439,13 +436,13 @@
     { id: 'A2', when: at(0, 11, 0), title: 'Review Quotation #QT-2026-0158', sub: 'Dubai Mall Extension', type: 'review', branchId: 'dxb', owner: 'Aisha Rahman' },
     { id: 'A3', when: at(0, 14, 0), title: 'Site Visit – Business Bay', sub: 'With Project Team', type: 'visit', branchId: 'dxb', owner: 'Ramesh Nair' },
     { id: 'A4', when: at(0, 16, 0), title: 'Approve Expenses', sub: 'Pending for approval', type: 'approval', branchId: 'dxb', owner: 'Meera Joseph' },
-    { id: 'A5', when: at(0, 10, 0), title: 'Client call – Gulf Infrastructure', sub: 'Quote clarification', type: 'meeting', branchId: 'auh', owner: 'Faisal Ahmed' },
-    { id: 'A6', when: at(0, 15, 30), title: 'Site Visit – Sharjah Warehouse', sub: 'Progress inspection', type: 'visit', branchId: 'shj', owner: 'Sarah Thomas' },
-    { id: 'A7', when: at(1, 9, 0), title: 'Abu Dhabi Tower kick-off', sub: 'PO handover with client', type: 'meeting', branchId: 'auh', owner: 'Priya Menon' },
-    { id: 'A8', when: at(1, 12, 0), title: 'Review Quotation #QT-2026-0164', sub: 'Ajman Residence', type: 'review', branchId: 'shj', owner: 'Aisha Rahman' },
+    { id: 'A5', when: at(0, 10, 0), title: 'Client call – Gulf Infrastructure', sub: 'Quote clarification', type: 'meeting', branchId: 'dxb', owner: 'Faisal Ahmed' },
+    { id: 'A6', when: at(0, 15, 30), title: 'Site Visit – Sharjah Warehouse', sub: 'Progress inspection', type: 'visit', branchId: 'dxb', owner: 'Sarah Thomas' },
+    { id: 'A7', when: at(1, 9, 0), title: 'Abu Dhabi Tower kick-off', sub: 'PO handover with client', type: 'meeting', branchId: 'dxb', owner: 'Priya Menon' },
+    { id: 'A8', when: at(1, 12, 0), title: 'Review Quotation #QT-2026-0164', sub: 'Ajman Residence', type: 'review', branchId: 'dxb', owner: 'Aisha Rahman' },
     { id: 'A9', when: at(1, 15, 0), title: 'Approve Transfer request', sub: 'AED 8,500 to Ramesh Nair', type: 'approval', branchId: 'dxb', owner: 'Meera Joseph' },
     { id: 'A10', when: at(2, 11, 0), title: 'Site Visit – Ras Al Khaimah Port', sub: 'Snag list walkthrough', type: 'visit', branchId: 'dxb', owner: 'Ali Khan' },
-    { id: 'A11', when: at(2, 10, 0), title: 'Muscat Marina fit-out review', sub: 'Design sign-off', type: 'review', branchId: 'mct', owner: 'Omar Haddad' }
+    { id: 'A11', when: at(2, 10, 0), title: 'Muscat Marina fit-out review', sub: 'Design sign-off', type: 'review', branchId: 'dxb', owner: 'Omar Haddad' }
   ];
 
   const ago = mins => new Date(at(0, 12, 0).getTime() - mins * 60000);

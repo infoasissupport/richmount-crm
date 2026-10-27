@@ -50,6 +50,17 @@
     return fmtDate(d);
   };
   const initials = s => String(s).split(/\s+/).filter(w => /[A-Za-z]/.test(w[0] || '')).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  /* initials avatar; the tone is picked from the name so a person keeps the same colour */
+  const AV_TONES = ['pink', 'blue', 'amber', 'purple', 'green', 'gray'];
+  const avatar = name => {
+    const h = [...String(name)].reduce((n, ch) => n + ch.charCodeAt(0), 0);
+    return `<span class="avatar sm av-${AV_TONES[h % AV_TONES.length]}" aria-hidden="true">${esc(initials(name))}</span>`;
+  };
+  const SOURCE = {
+    'Email': ['mail', 'red'], 'Website': ['globe', 'blue'], 'Social Media': ['share', 'purple'],
+    'Referral': ['users', 'green'], 'Phone': ['phone', 'amber'], 'Exhibition': ['award', 'pink']
+  };
+  const sourcePill = src => { const m = SOURCE[src] || ['info', 'gray']; return `<span class="pill pill-${m[1]} src-pill">${icon(m[0])}${esc(src)}</span>`; };
   const debounce = (fn, ms) => { let t; return function () { const a = arguments; clearTimeout(t); t = setTimeout(() => fn.apply(null, a), ms); }; };
   const branchOf = id => API.branch(id) || { name: '—', short: '—', code: '—', quoteFormat: '—' };
   const engName = id => (API.engineer(id) || { name: 'Unassigned' }).name;
@@ -146,7 +157,8 @@
     return f;
   }
   const state = {
-    filters: scopeFilters(Object.assign({}, DEFAULT_FILTERS, store.get('savedFilter', {}), store.get('filters', {}))),
+    // the filter bar was removed; only the topbar branch switcher (country + branch) carries over between visits
+    filters: scopeFilters((({ country, branch }) => Object.assign({}, DEFAULT_FILTERS, country && { country }, branch && { branch }))(store.get('filters', {}))),
     role: me.key,
     user: me,
     ctx: null
@@ -479,28 +491,45 @@
   }
 
   /* ---------- data table (used on pages and in modals) ---------- */
+  /* date periods for list filters; periodStart → first day included, null = all time */
+  const PERIODS = [['month', 'This Month'], ['7', 'Last 7 Days'], ['30', 'Last 30 Days'], ['year', 'This Year'], ['all', 'All Time']];
+  function periodStart(p, to) {
+    if (p === 'month') return startOfMonth(to);
+    if (p === 'year') return new Date(to.getFullYear(), 0, 1);
+    if (p === '7' || p === '30') return startOfDay(addDays(to, -(+p) + 1));
+    return null;
+  }
   function dataTable(host, o) {
     let q = '', page = 0, shown = [];
     let tab = o.tabs ? ((o.tabs.find(t => t.id === o.tab) || o.tabs[0]).id) : null;
-    const size = o.pageSize || 25;
-    host.innerHTML = `${o.title ? `<header class="card-head"><h2>${o.icon ? `<span class="head-ic">${icon(o.icon)}</span>` : ''}${esc(o.title)}</h2>${o.headExtra || ''}</header>` : ''}
-      ${o.tabs ? `<div class="tabs" role="tablist">${o.tabs.map(t => `<button class="tab" role="tab" data-tab="${t.id}">${esc(t.label)}<span></span></button>`).join('')}</div>` : ''}
+    const size = o.pageSize || 10;
+    const titleH = o.title ? `<h2>${o.icon ? `<span class="head-ic">${icon(o.icon)}</span>` : ''}${esc(o.title)}</h2>` : '';
+    const search = `<label class="search-input${o.headTools ? ' recent-search' : ''}">${icon('search', 'ic sm')}<input type="search" placeholder="${esc(o.searchPlaceholder || 'Search records...')}" data-q aria-label="Search records"></label>`;
+    const tabSelH = o.tabs && o.tabSelect ? `<span class="select-wrap mini with-icon">${icon('filter')}<select data-tabsel aria-label="Status">${o.tabs.map(t => `<option value="${t.id}">${esc(t.label)}</option>`).join('')}</select></span>` : '';
+    const periodH = o.period ? `<span class="select-wrap mini with-icon">${icon('calendar')}<select data-period aria-label="Date period">${PERIODS.map(p => `<option value="${p[0]}"${p[0] === (o.periodDefault || 'all') ? ' selected' : ''}>${p[1]}</option>`).join('')}</select></span>` : '';
+    /* headTools: export/print live in the page header; the card head matches the dashboard's Recent Leads head */
+    host.innerHTML = `${o.headTools
+        ? `<header class="card-head recent-head"><h2 class="lg">${esc(o.title || '')}</h2><div class="head-actions">${search}${tabSelH}${periodH}${o.toolbar || ''}${o.headExtra || ''}</div></header>`
+        : `${o.title ? `<header class="card-head">${titleH}${o.headExtra || ''}</header>` : ''}`}
+      ${o.tabs && !o.tabSelect ? `<div class="tabs" role="tablist">${o.tabs.map(t => `<button class="tab" role="tab" data-tab="${t.id}">${esc(t.label)}<span></span></button>`).join('')}</div>` : ''}
       ${o.intro || ''}
-      <div class="tm-toolbar">
-        <label class="search-input">${icon('search', 'ic sm')}<input type="search" placeholder="Search records..." data-q aria-label="Search records"></label>
+      ${o.headTools ? '' : `<div class="tm-toolbar">
+        ${search}${tabSelH}
         <span class="tm-count"></span>
         ${o.toolbar || ''}
         <button class="btn btn-ghost btn-sm" data-export>${icon('download', 'ic sm')}Export CSV</button>
         ${o.print ? `<button class="btn btn-ghost btn-sm" data-print aria-label="Print">${icon('printer', 'ic sm')}Print</button>` : ''}
-      </div>
-      <div class="table-wrap ${o.compact ? 'tall' : 'page'}"><table class="table cards"><thead><tr>${o.columns.map(c => `<th class="${c.cls || ''}">${esc(c.label)}</th>`).join('')}</tr></thead><tbody></tbody></table></div>
-      <div class="pager"><span class="pager-info"></span><span class="pager-btns"><button class="btn btn-ghost btn-sm" data-prev>${icon('chevron-right', 'ic sm flip')}Prev</button><button class="btn btn-ghost btn-sm" data-next>Next${icon('chevron-right', 'ic sm')}</button></span></div>`;
+      </div>`}
+      <div class="table-wrap ${o.compact ? 'tall' : 'page'}"><table class="table cards"><thead><tr>${o.rowNumbers ? `<th>${esc(o.rowNumbers)}</th>` : ''}${o.columns.map(c => `<th class="${c.cls || ''}">${esc(c.label)}${c.headIcon ? ` ${icon(c.headIcon, 'ic sm')}` : ''}</th>`).join('')}</tr></thead><tbody></tbody></table></div>
+      <div class="pager dt-pager"><span class="pager-info"></span><span class="pager-btns"></span></div>`;
     const tbody = $('tbody', host);
     const source = () => (typeof o.rows === 'function' ? o.rows() : o.rows);
     function filtered() {
       let list = source();
       if (o.tabs) list = list.filter(o.tabs.find(t => t.id === tab).filter);
       if (q) list = list.filter(r => o.columns.some(c => c.get && String(c.get(r)).toLowerCase().includes(q)));
+      const ps = o.period && periodStart($('[data-period]', host).value, TODAY);
+      if (ps) list = list.filter(r => o.period(r) >= ps);
       return list;
     }
     function draw() {
@@ -512,27 +541,45 @@
           b.classList.toggle('active', t.id === tab);
           b.setAttribute('aria-selected', String(t.id === tab));
         });
+        const sel = $('[data-tabsel]', host);
+        if (sel) {
+          o.tabs.forEach((t, i) => { sel.options[i].textContent = t.id === 'all' ? t.label : `${t.label} (${all.filter(t.filter).length})`; });
+          sel.value = tab;
+        }
       }
       const list = filtered();
       const pages = Math.max(1, Math.ceil(list.length / size));
       if (page >= pages) page = pages - 1;
       shown = list.slice(page * size, (page + 1) * size);
       tbody.innerHTML = shown.length
-        ? shown.map((r, i) => `<tr data-i="${i}" class="${o.onRow ? 'clickable' : ''}">${o.columns.map(c => `<td class="${c.cls || ''}${!c.label || c.label === 'Action' ? ' cell-act' : ''}" data-label="${esc(c.label || '')}">${c.render ? c.render(r) : esc(c.get(r))}</td>`).join('')}</tr>`).join('')
-        : `<tr><td class="empty" colspan="${o.columns.length}">${esc(o.empty || 'No records match the current filters.')}</td></tr>`;
-      $('.tm-count', host).textContent = `${fmtNum(list.length)} record${list.length === 1 ? '' : 's'}`;
+        ? shown.map((r, i) => `<tr data-i="${i}" class="${o.onRow ? 'clickable' : ''}">${o.rowNumbers ? `<td class="dt-no" data-label="${esc(o.rowNumbers)}">${page * size + i + 1}</td>` : ''}${o.columns.map(c => `<td class="${c.cls || ''}${!c.label || c.label === 'Action' ? ' cell-act' : ''}" data-label="${esc(c.label || '')}">${c.render ? c.render(r) : esc(c.get(r))}</td>`).join('')}</tr>`).join('')
+        : `<tr><td class="empty" colspan="${o.columns.length + (o.rowNumbers ? 1 : 0)}">${esc(o.empty || 'No records match the current filters.')}</td></tr>`;
+      if ($('.tm-count', host)) $('.tm-count', host).textContent = `${fmtNum(list.length)} record${list.length === 1 ? '' : 's'}`;
       $('.pager', host).hidden = list.length <= size;
       $('.pager-info', host).textContent = list.length ? `Showing ${page * size + 1}–${page * size + shown.length} of ${fmtNum(list.length)}` : '';
-      $('[data-prev]', host).disabled = page === 0;
-      $('[data-next]', host).disabled = page >= pages - 1;
+      // ‹ 1 2 3 4 5 › — at most 5 page numbers around the current page (same as the dashboard pager)
+      const first = Math.max(0, Math.min(page - 2, pages - 5)), last = Math.min(pages - 1, first + 4);
+      let nums = '';
+      for (let n = first; n <= last; n++) nums += `<button class="btn btn-ghost btn-sm pager-num${n === page ? ' active' : ''}" data-page="${n}"${n === page ? ' aria-current="page"' : ''}>${n + 1}</button>`;
+      $('.pager-btns', host).innerHTML = `<button class="btn btn-ghost btn-sm" data-page="${page - 1}"${page === 0 ? ' disabled' : ''} aria-label="Previous page">${icon('chevron-right', 'ic sm flip')}</button>${nums}`
+        + `<button class="btn btn-ghost btn-sm" data-page="${page + 1}"${page >= pages - 1 ? ' disabled' : ''} aria-label="Next page">${icon('chevron-right', 'ic sm')}</button>`;
     }
     $('[data-q]', host).addEventListener('input', debounce(e => { q = e.target.value.trim().toLowerCase(); page = 0; draw(); }, 120));
     $$('[data-tab]', host).forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; page = 0; draw(); if (o.onTab) o.onTab(tab); }));
-    $('[data-export]', host).addEventListener('click', () => downloadCSV(o.exportName || o.title || 'Export', o.columns, filtered()));
+    const tabSel = $('[data-tabsel]', host);
+    if (tabSel) tabSel.addEventListener('change', () => { tab = tabSel.value; page = 0; draw(); if (o.onTab) o.onTab(tab); });
+    const perSel = $('[data-period]', host);
+    if (perSel) perSel.addEventListener('change', () => { page = 0; draw(); });
+    const exportCSV = () => downloadCSV(o.exportName || o.title || 'Export', o.columns, filtered());
+    const print = () => printTable(o.exportName || o.title, o.columns, filtered());
+    const ex = $('[data-export]', host);
+    if (ex) ex.addEventListener('click', exportCSV);
     const pr = $('[data-print]', host);
-    if (pr) pr.addEventListener('click', () => printTable(o.exportName || o.title, o.columns, filtered()));
-    $('[data-prev]', host).addEventListener('click', () => { page--; draw(); $('.table-wrap', host).scrollTop = 0; });
-    $('[data-next]', host).addEventListener('click', () => { page++; draw(); $('.table-wrap', host).scrollTop = 0; });
+    if (pr) pr.addEventListener('click', print);
+    $('.pager-btns', host).addEventListener('click', e => {
+      const b = e.target.closest('[data-page]');
+      if (b && !b.disabled) { page = +b.dataset.page; draw(); $('.table-wrap', host).scrollTop = 0; }
+    });
     tbody.addEventListener('click', e => {
       const tr = e.target.closest('tr[data-i]');
       if (!tr) return;
@@ -543,7 +590,7 @@
       if (o.onRow) o.onRow(row);
     });
     draw();
-    return { draw, el: host, setTab(t) { tab = t; page = 0; draw(); } };
+    return { draw, el: host, exportCSV, print, setTab(t) { tab = t; page = 0; draw(); } };
   }
   function tableModal(o) {
     const m = modal({ title: o.title, sub: o.sub, body: '<div data-host></div>', size: 'xl', noFocus: true });
@@ -702,13 +749,13 @@
     const leadDate = src.leadDate ? (src.leadDate instanceof Date ? toISO(src.leadDate) : src.leadDate) : toISO(TODAY);
     const m = modal({
       title: isEdit ? 'Edit Lead' : 'New Lead', size: 'lg',
-      sub: isEdit ? `${lead.leadNumber} · ${stageName(lead.stage)}` : 'The lead appears in Lead Management, the dashboard KPIs and the pipeline.',
+      sub: isEdit ? `${lead.leadNumber} · ${stageName(lead.stage)}` : '',
       body: `<form class="form-grid" id="leadForm" novalidate>
         ${draft ? `<div class="info-box full" id="draftNote">${icon('info')}<span>Restored your unsaved draft from ${esc(fmtTime(new Date(draft.savedAt)))}. <button type="button" class="link-btn" id="discardDraft">Discard draft</button></span></div>` : ''}
         ${field('Lead Number', `<input value="${esc(isEdit ? lead.leadNumber : API.nextLeadNumber())}" readonly>`, { hint: isEdit ? '' : 'Assigned automatically' })}
         ${field('Lead Date', `<input name="leadDate" type="date" required value="${leadDate}" max="${toISO(TODAY)}">`, { req: 1 })}
-        ${field('Client Name', `<input name="name" required maxlength="80" value="${v('name')}" placeholder="Client Name" list="clientList" autocomplete="off"><datalist id="clientList">${clientNames().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
-          <span class="field-actions"><button type="button" class="btn btn-soft btn-sm" id="addClient">${icon('plus', 'ic sm')}Add Client</button></span>`, { req: 1, star: 1, full: 1, div: 1 })}
+        ${field('Client Name', `<span class="field-inline"><input name="name" required maxlength="80" value="${v('name')}" placeholder="Client Name" list="clientList" autocomplete="off"><datalist id="clientList">${clientNames().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+          <button type="button" class="btn btn-soft" id="addClient">${icon('plus', 'ic sm')}Add Client</button></span>`, { req: 1, star: 1, full: 1, div: 1 })}
         ${field('RFQ / PR Number', `<input name="rfqNumber" maxlength="40" value="${v('rfqNumber')}" placeholder="RFQ / PR Number">`, { star: 1 })}
         ${field('Project Subject', `<input name="subject" required maxlength="100" value="${v('subject')}" placeholder="Project Subject">`, { req: 1 })}
         ${field('Contact Person', `<input name="contact" required maxlength="60" value="${v('contact')}" placeholder="Full name">`, { req: 1 })}
@@ -717,10 +764,10 @@
         ${field('Budget (AED)', `<input name="estValue" type="number" min="0" step="1000" value="${v('estValue')}" placeholder="0">`)}
        
         ${field('Source', selectCtl('source', API.sources.map(s => ({ v: s, t: s })), src.source || 'Website'), { star: 1 })}
-        ${field('Branch', selectCtl('branchId', branchOpts(), branchId, myEngineer() ? 'disabled' : ''), { star: 1 })}
+        <input type="hidden" name="branchId" value="${esc(branchId)}">
         ${field('Assigned Engineer', selectCtl('engineerId', engOpts(branchId), engId, myEngineer() ? 'disabled' : ''), { star: 1 })}
         ${field('Notes', `<textarea name="notes" rows="3" maxlength="500" placeholder="Note">${v('notes')}</textarea>`, { full: 1, star: 1 })}
-        ${field('Attachments', '<input name="attachments" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.dwg,.xlsx,.docx">', { full: 1, star: 1, hint: (src.attachments && src.attachments.length) ? `Attached: ${src.attachments.map(esc).join(', ')}` : 'Drawings, BOQ or enquiry documents (file names are stored in the demo)' })}
+        ${field('Attachments', '<input name="attachments" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.dwg,.xlsx,.docx">', { full: 1, star: 1, hint: (src.attachments && src.attachments.length) ? `Attached: ${src.attachments.map(esc).join(', ')}` : '' })}
       </form>`,
       foot: `<button class="btn btn-ghost" data-close>Cancel</button>${isEdit ? '' : `<button class="btn btn-ghost" type="button" id="saveLeadDraft">${icon('bookmark')}Save Draft</button>`}<button class="btn btn-primary" type="submit" form="leadForm">${icon(isEdit ? 'check' : 'plus')}${isEdit ? 'Save Changes' : 'Create Lead'}</button>`
     });
@@ -1926,7 +1973,7 @@
     const head = $('#pageHead');
     if (!head) return;
     const actions = (def.actions || []).filter(a => !a.perm || can(a.perm));
-    head.innerHTML = `<div><h1>${esc(def.title)}</h1><p>${esc(def.sub || '')}</p></div>
+    head.innerHTML = `<div><h1>${esc(def.title)}</h1>${def.sub ? `<p>${esc(def.sub)}</p>` : ''}</div>
       <div class="page-actions">${actions.map((a, i) => `<button class="btn ${a.cls || 'btn-primary'} btn-lg" data-pa="${i}">${a.icon ? icon(a.icon) : ''}${esc(a.label)}</button>`).join('')}</div>`;
     $$('[data-pa]', head).forEach(b => b.addEventListener('click', () => actions[+b.dataset.pa].run()));
   }
@@ -1986,11 +2033,11 @@
     API, TODAY, MONTHS, WEEKDAYS, ROLES, PERMS: AUTH.ROLE_PERMISSIONS, KPI, COLS, ACTIONS, ACTIVITY, OPEN_STATUSES, DRAFTISH, DOC_CSS,
     LEAD_TONE, PROJECT_TONE, STAGE_TONE,
     $, $$, esc, icon, pad, toISO, parseISO, startOfDay, endOfDay, addDays, addMonths, startOfMonth, endOfMonth, inRange, sum, debounce,
-    fmtDate, fmtTime, fmtDateTime, fmtNum, fmtAED, fmtAED2, fmtAEDCompact, fmtAgo, initials, branchOf, engName, deptName, statusMeta, quoteStatus,
+    fmtDate, fmtTime, fmtDateTime, fmtNum, fmtAED, fmtAED2, fmtAEDCompact, fmtAgo, initials, avatar, sourcePill, branchOf, engName, deptName, statusMeta, quoteStatus,
     projLabel, stageName, leadOfQuote, fileNames,
     pill, leadPill, quotePill, projectPill, expStatus, expStatusName, transferStatus, transferRoute, invoicePill, viewMoreCol,
     AUTH, me, state, store, params, go, can, guard, navAllowed, myEngineer, allowedBranches, scopeOf, branchVisible, scopeLabel, rangeLabel,
-    toast, flash, act, menu, popover, closePop, modal, confirmDialog, promptDialog, openDrawer, dataTable, tableModal,
+    toast, flash, act, menu, popover, closePop, modal, confirmDialog, promptDialog, openDrawer, dataTable, tableModal, periodStart,
     downloadCSV, downloadFile, printHTML, printTable, renderKpis, renderTimeline, field, selectCtl, opts, val, validate,
     leadForm, assignForm, assignBoard, quoteForm, projectForm, poForm, completionForm, expenseForm, transferForm, editTransferForm, paymentForm,
     cashLedgerModal, invoiceForm, invoicePreview, approveExpense, rejectExpense, editExpenseForm, approveTransfer, rejectTransfer,

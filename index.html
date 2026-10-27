@@ -25,82 +25,22 @@
       </section>
       <!-- Everything below the page header scrolls inside this box -->
       <div class="dash-scroll">
-        <section class="card filter-bar" id="filterBar" aria-label="Dashboard filters"></section>
 
         <!-- KPIs -->
         <section class="kpi-grid" id="kpis" aria-label="Key figures">
 
         </section>
 
-        <!-- Lead pipeline -->
-        <section class="card pipeline" id="pipeline">
-          <header class="card-head">
-            <h2 class="lg"><span class="head-ic solid"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7M12 7v4M16 7v9"/></svg></span>Lead Pipeline</h2>
-            <div class="head-actions">
-              <span class="select-wrap mini"><select id="pipelinePeriod" aria-label="Pipeline period">
-                <option value="30">Last 30 Days</option>
-                <option value="90">Last 90 Days</option>
-                <option value="range">Filtered Period</option>
-              </select></span>
-              <a class="link-btn" href="leads.html">View All <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
-            </div>
-          </header>
-          <div class="pipeline-grid" id="pipelineCols"></div>
-        </section>
-
-        <!-- Charts -->
-        <section class="chart-grid">
-          <article class="card chart-card">
-            <header class="card-head">
-              <h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg></span>Leads &amp; Quotations Trend</h2>
-              <div class="head-actions chart-actions">
-                <span class="select-wrap mini"><select id="trendStyle" aria-label="Chart style">
-                  <option value="area" selected>Area</option>
-                  <option value="line">Line</option>
-                  <option value="bar">Bar</option>
-                  <option value="stacked">Stacked Bar</option>
-                </select></span>
-                <span class="select-wrap mini"><select id="trendPeriod" aria-label="Trend period">
-                  <option value="monthly">Monthly</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="quarterly">Quarterly</option>
-                </select></span>
-              </div>
-            </header>
-            <div class="legend"><span><i style="background:#941C3C"></i>Leads</span><span><i style="background:#E58AA2"></i>Quotations</span></div>
-            <div class="chart" id="trendChart"></div>
-          </article>
-
-          <article class="card chart-card">
-            <header class="card-head">
-              <h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg></span>Expense Overview</h2>
-              <div class="head-actions chart-actions">
-                <span class="select-wrap mini"><select id="expenseStyle" aria-label="Chart style">
-                  <option value="area">Area</option>
-                  <option value="line">Line</option>
-                  <option value="bar">Bar</option>
-                  <option value="stacked" selected>Stacked Bar</option>
-                </select></span>
-                <span class="select-wrap mini"><select id="expensePeriod" aria-label="Expense period">
-                  <option value="year">This Year</option>
-                  <option value="6m">Last 6 Months</option>
-                  <option value="quarterly">Quarterly</option>
-                </select></span>
-              </div>
-            </header>
-            <div class="legend"><span><i style="background:#941C3C"></i>Cash</span><span><i style="background:#EBA3B5"></i>Card</span></div>
-            <div class="chart" id="expenseChart"></div>
-          </article>
-        </section>
+  
 
         <!-- Bottom row -->
         <section class="bottom-grid">
           <article class="card">
             <header class="card-head recent-head">
-              <h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><circle cx="12" cy="12.5" r="2.2"/><path d="M8.5 18.5a3.5 3.5 0 0 1 7 0"/></svg></span>Recent Leads <span class="count-badge" id="recentCount" title="Leads created in the last 7 days">0</span></h2>
+              <h2>Recent Leads</h2>
               <div class="head-actions">
-                <label class="search-input recent-search"><svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input type="search" id="recentSearch" placeholder="Search leads..." aria-label="Search recent leads"></label>
-                <span class="select-wrap mini"><select id="recentStatus" aria-label="Filter by status">
+                <label class="search-input recent-search"><svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input type="search" id="recentSearch" placeholder="Search leads by name, company, source..." aria-label="Search recent leads"></label>
+                <span class="select-wrap mini with-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg><select id="recentStatus" aria-label="Filter by status">
                   <option value="">All Status</option>
                   <option>New</option>
                   <option>Contacted</option>
@@ -109,7 +49,13 @@
                   <option>Won</option>
                   <option>Lost</option>
                 </select></span>
-                <a class="link-btn" href="leads.html">View All <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+                <span class="select-wrap mini with-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><select id="recentPeriod" aria-label="Date period">
+                  <option value="month" selected>This Month</option>
+                  <option value="7">Last 7 Days</option>
+                  <option value="30">Last 30 Days</option>
+                  <option value="year">This Year</option>
+                  <option value="all">All Time</option>
+                </select></span>
               </div>
             </header>
             <div class="table-wrap recent-wrap">
@@ -119,14 +65,20 @@
               <div class="pager" id="recentPager"></div>
             </div>
           </article>
-
-          <article class="card">
-            <header class="card-head">
-              <h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>Upcoming Activities</h2>
-              <button class="link-btn" id="activitiesAll">View All <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
-            </header>
-            <ul class="timeline" id="activities"></ul>
-          </article>
+        </section>
+              <!-- Lead pipeline -->
+        <section class="card pipeline" id="pipeline">
+          <header class="card-head">
+            <h2 class="lg">Lead Pipeline</h2>
+            <div class="head-actions">
+              <span class="select-wrap mini with-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><select id="pipelinePeriod" aria-label="Pipeline period">
+                <option value="30">Last 30 Days</option>
+                <option value="90">Last 90 Days</option>
+                <option value="range">Filtered Period</option>
+              </select></span>
+            </div>
+          </header>
+          <div class="pipeline-grid" id="pipelineCols"></div>
         </section>
       </div>
       <footer class="page-foot"><span>© 2026 Rich Mount ERP</span><span>Designed by ATTechinfoasis</span></footer>
@@ -137,7 +89,6 @@
 <script src="js/icons.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/data.js"></script>
-<script src="js/charts.js"></script>
 <script src="js/core.js"></script>
 <script src="js/pages/dashboard.js"></script>
 </body>

@@ -42,6 +42,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/quotations/{quotation}/reject', [QuotationApiController::class, 'reject']);
         Route::post('/quotations/{quotation}/send', [QuotationApiController::class, 'send']);
         Route::post('/quotations/{quotation}/award', [QuotationApiController::class, 'award']);
+        Route::post('/quotations/{quotation}/reopen', [QuotationApiController::class, 'reopen']);
 
         // Projects Mobile API
         Route::get('/projects', [ProjectApiController::class, 'index']);

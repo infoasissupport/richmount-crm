@@ -84,7 +84,7 @@
                 @endcan
             @elseif($quote->status === 'approved')
                 @can('quotes.edit')
-                <button class="btn btn-ghost" type="button" onclick="enableQuoteEditing()">
+                <button class="btn btn-ghost" type="button" onclick="openReopenModal()">
                     <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"/></svg>
                     Edit
                 </button>
@@ -97,7 +97,7 @@
                 @endcan
             @elseif($quote->status === 'sent')
                 @can('quotes.edit')
-                <button class="btn btn-ghost" type="button" onclick="enableQuoteEditing()">
+                <button class="btn btn-ghost" type="button" onclick="openReopenModal()">
                     <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"/></svg>
                     Edit
                 </button>
@@ -208,6 +208,16 @@
             <svg class="ic sm" style="width: 16px; height: 16px; color: #16A34A;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check-circle"/></svg>
             <span>Approved {{ $quote->approvedBy ? 'by ' . $quote->approvedBy->name : '' }}. Ready to be sent to the customer.</span>
         </div>
+    @elseif($quote && $quote->status === 'draft')
+        @php
+            $reopenedHist = $quote->histories ? $quote->histories->where('action', 'reopened')->last() : null;
+        @endphp
+        @if($reopenedHist)
+            <div style="background: #EFF6FF; border: 1px solid #DBEAFE; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; color: #1E40AF; font-size: 13px;">
+                <svg class="ic sm" style="width: 16px; height: 16px; color: #3B82F6;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"/></svg>
+                <span>{{ $reopenedHist->text }}. Make the changes and submit for approval again.</span>
+            </div>
+        @endif
     @endif
 
     @if($quote && $quote->rejection_reason)
@@ -631,6 +641,66 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
 </div>
 @endif
 
+@if($quote && in_array($quote->status, ['approved', 'sent']))
+{{-- Reopen / Edit Quotation Modal matching prototype --}}
+<div class="modal-wrap" id="reopenModal" style="display: none;" onclick="if(event.target === this) closeReopenModal()">
+    <div class="modal modal-md" role="dialog" aria-modal="true" aria-labelledby="reopenModalTitle" style="max-width: 540px;">
+        <div class="modal-head">
+            <div>
+                <h3 id="reopenModalTitle">Edit {{ $quote->quote_number }}?</h3>
+                <p>
+                    @if($quote->status === 'sent')
+                        Revision after sending: the quotation moves back to Draft with a new revision number and today's date. Submit it for approval again before sending to the customer.
+                    @else
+                        The quotation moves back to Draft. After editing, submit it for approval again.
+                    @endif
+                </p>
+            </div>
+            <button class="icon-btn" type="button" onclick="closeReopenModal()" aria-label="Close">
+                <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+            </button>
+        </div>
+        <form id="reopenForm" method="POST" action="{{ route('quotations.reopen', $quote) }}">
+            @csrf
+            <div class="modal-body" style="padding: 20px;">
+                <label class="field" style="margin-bottom: 14px;">
+                    <span class="field-label" style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block;">
+                        Reason for edit &amp; changes required <span style="color: var(--primary);">*</span>
+                    </span>
+                    <textarea name="reason" rows="4" required maxlength="500" placeholder="Describe the changes required in scope, quantities, or pricing..."></textarea>
+                </label>
+
+                <label class="field" style="margin: 0;">
+                    <span class="field-label" style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block;">Assign to</span>
+                    <span class="select-wrap">
+                        <select name="engineer_id">
+                            <option value="">Myself ({{ auth()->user()->name }}) &mdash; edit directly</option>
+                            @if(isset($branchEngineers))
+                                @foreach($branchEngineers as $eng)
+                                    <option value="{{ $eng->id }}" {{ $eng->id === $lead->assigned_engineer_id ? 'selected' : '' }}>
+                                        {{ $eng->name }} {{ $eng->id === $lead->assigned_engineer_id ? '(current engineer)' : '' }}
+                                    </option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </span>
+                    <span style="font-size: 11.5px; color: var(--muted); margin-top: 4px; display: block;">
+                        Edit it yourself, or assign to an engineer from {{ $lead->branch->name }}
+                    </span>
+                </label>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" type="button" onclick="closeReopenModal()">Cancel</button>
+                <button class="btn btn-primary" type="submit">
+                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"/></svg>
+                    Move to Draft
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
+
 @if($quote)
 {{-- Clone Quotation Modal matching prototype --}}
 <div class="modal-wrap" id="cloneModal" style="display: none;" onclick="if(event.target === this) closeCloneModal()">
@@ -902,6 +972,24 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
             modal.classList.remove('open');
             modal.style.display = 'none';
         }
+    }
+
+    function openReopenModal() {
+        var modal = document.getElementById('reopenModal');
+        if (modal) {
+            modal.style.display = 'grid';
+            modal.classList.add('open');
+        }
+    }
+    function closeReopenModal() {
+        var modal = document.getElementById('reopenModal');
+        if (modal) {
+            modal.classList.remove('open');
+            modal.style.display = 'none';
+        }
+    }
+    function enableQuoteEditing() {
+        openReopenModal();
     }
 
     function toggleMinimize() {

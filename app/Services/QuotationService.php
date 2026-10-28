@@ -308,4 +308,64 @@ class QuotationService
             return $quotation;
         });
     }
+
+    /**
+     * Reopen an approved or sent quotation back into draft for editing.
+     */
+    public function reopenQuote(Quotation $quotation, User $user, string $reason, ?int $engineerId = null): Quotation
+    {
+        return DB::transaction(function () use ($quotation, $user, $reason, $engineerId) {
+            if (!in_array($quotation->status, ['approved', 'sent'])) {
+                throw new \InvalidArgumentException('Only approved or sent quotations can be reopened for editing.');
+            }
+
+            $wasSent = $quotation->status === 'sent';
+            $oldNumber = $quotation->quote_number;
+
+            if ($wasSent) {
+                // If previously sent to customer, create revision number (e.g. QT-2026-0805_R1, _R2)
+                $base = preg_replace('/_R\d+$/', '', $quotation->quote_number);
+                if (preg_match('/_R(\d+)$/', $quotation->quote_number, $matches)) {
+                    $rev = ((int)$matches[1]) + 1;
+                } else {
+                    $rev = 1;
+                }
+                $quotation->quote_number = "{$base}_R{$rev}";
+                $quotation->quote_date = now()->toDateString();
+            }
+
+            $quotation->status = 'draft';
+            $quotation->approved_by_id = null;
+            $quotation->rejection_reason = null;
+            $quotation->auto_saved_at = now();
+
+            // Reassign lead engineer if specified
+            if ($engineerId) {
+                $engineer = User::findOrFail($engineerId);
+                $quotation->lead?->update(['assigned_engineer_id' => $engineer->id]);
+            }
+
+            $quotation->save();
+
+            // Sync lead stage back to draft
+            if ($quotation->lead && in_array($quotation->lead->stage, ['approved', 'sent'])) {
+                $quotation->lead->update(['stage' => 'draft']);
+            }
+
+            $actionText = $wasSent
+                ? "Quotation revised ({$oldNumber} -> {$quotation->quote_number}) and moved to draft for editing: {$reason}"
+                : "Quotation moved to draft for editing: {$reason}";
+
+            QuotationHistory::create([
+                'quotation_id' => $quotation->id,
+                'user_id' => $user->id,
+                'action' => 'reopened',
+                'text' => $actionText,
+            ]);
+
+            AuditService::log('reopened', $quotation, $actionText);
+
+            return $quotation;
+        });
+    }
 }

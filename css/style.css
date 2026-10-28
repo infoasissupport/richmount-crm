@@ -1038,7 +1038,7 @@ body.compact .content { gap: 12px; }
   .table.cards td::before { content: attr(data-label); float: left; margin-right: 12px; color: var(--muted); font-weight: 500; text-align: left; }
   .table.cards td.dt-no { display: none; }
   .table.cards .cell-who { display: inline-flex; }
-  .table.cards .cell-text { display: inline-flex; text-align: right; }
+  .table.cards .cell-text { display: inline-flex; text-align: left; }
   .table.cards td small { display: inline; margin-left: 4px; }
   .table.cards td[data-label=""]::before { content: none; }
   .table.cards td:first-child { padding-bottom: 8px; margin-bottom: 1px; border-bottom: 1px solid var(--line-soft); font-weight: 600; color: var(--text); }

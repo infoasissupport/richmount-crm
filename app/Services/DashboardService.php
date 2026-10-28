@@ -151,7 +151,60 @@ class DashboardService
             ];
         }
 
-        // Management, Super Admin & Estimation KPIs
+        if ($user->isSuperAdmin()) {
+            // Super Admin KPIs (prototype admin set): period totals, trend vs the same period last year
+            $to = $now->copy();
+            $from = $startCurrent;
+            $hasTrend = $period !== 'all';
+
+            $kpi = function (string $key, string $label, string $icon, callable $calc, bool $money, string $href) use ($from, $to, $hasTrend) {
+                $current = $calc($from, $to);
+                $previous = $hasTrend ? $calc($from->copy()->subYear(), $to->copy()->subYear()) : 0;
+                $trend = null;
+                $note = null;
+
+                if ($hasTrend && $previous) {
+                    $pct = ($current - $previous) / abs($previous) * 100;
+                    $trend = ['direction' => $pct >= 0 ? 'up' : 'down', 'pct' => (int) round(abs($pct))];
+                } elseif ($hasTrend) {
+                    $note = 'No data last year';
+                }
+
+                return [
+                    'key' => $key,
+                    'label' => $label,
+                    'value' => $money ? $this->formatAedCompact($current) : number_format($current),
+                    'icon' => $icon,
+                    'note' => $note,
+                    'trend' => $trend,
+                    'href' => $href,
+                ];
+            };
+
+            return [
+                $kpi('leads', 'Total Leads', 'users',
+                    fn ($a, $b) => (clone $leadQuery)->whereBetween('created_at', [$a, $b])->count(),
+                    false, route('leads.index')),
+                $kpi('quotes', 'Quotations', 'file-text',
+                    fn ($a, $b) => (clone $quoteQuery)->whereBetween('quote_date', [$a->toDateString(), $b->toDateString()])->count(),
+                    false, route('quotations.index')),
+                $kpi('active_projects', 'Active Projects', 'briefcase',
+                    fn ($a, $b) => (clone $projectQuery)
+                        ->where('status', '!=', 'closed')
+                        ->where('created_at', '<=', $b)
+                        ->where(fn ($q) => $q->whereNull('actual_end_date')->orWhere('actual_end_date', '>=', $a->toDateString()))
+                        ->count(),
+                    false, route('projects.index')),
+                $kpi('expenses', 'Total Expenses', 'wallet',
+                    fn ($a, $b) => (float) (clone $expenseQuery)->where('status', '!=', 'rejected')->whereBetween('date', [$a->toDateString(), $b->toDateString()])->sum('grand_total'),
+                    true, route('expenses.index')),
+                $kpi('invoiced', 'Total Invoiced', 'invoice',
+                    fn ($a, $b) => (float) Invoice::accessibleBy($user)->whereNotIn('status', ['draft', 'void'])->whereBetween('invoice_date', [$a->toDateString(), $b->toDateString()])->sum('grand_total'),
+                    true, route('finance.index')),
+            ];
+        }
+
+        // Estimation KPIs
         $activeLeads = (clone $leadQuery)->whereNotIn('status', ['won', 'lost'])->count();
         $pipelineValue = (clone $leadQuery)->whereNotIn('status', ['won', 'lost'])->sum('estimated_value');
         $draftQuotes = (clone $quoteQuery)->whereIn('status', ['draft', 'submitted'])->count();
@@ -281,6 +334,16 @@ class DashboardService
     }
 
     /**
+     * AED amount for KPI tiles: millions shortened to "AED 1.92M", otherwise whole dirhams.
+     */
+    protected function formatAedCompact(float $amount): string
+    {
+        return abs($amount) >= 1_000_000
+            ? 'AED ' . number_format($amount / 1_000_000, 2) . 'M'
+            : 'AED ' . number_format($amount);
+    }
+
+    /**
      * Format lead entities for pipeline cards.
      */
     protected function formatPipelineItems($leads): array
@@ -309,7 +372,7 @@ class DashboardService
     public function getRecentLeads(User $user, array $filters = []): LengthAwarePaginator
     {
         $query = Lead::accessibleBy($user)
-            ->with(['assignedEngineer', 'branch']);
+            ->with(['assignedEngineer', 'branch', 'latestQuotation', 'projects']);
 
         // Search filter
         if (!empty($filters['search'])) {

@@ -65,7 +65,7 @@
     </section>
 
     {{-- Quotations Table Card --}}
-    <section class="card" id="quotesTable">
+    <section class="card fill" id="quotesTable">
         <header class="card-head" style="border-bottom: 1px solid #eee; padding-bottom: 12px;">
             <h2>
                 <span class="head-ic">
@@ -259,10 +259,8 @@
             </table>
         </div>
 
-        @if($quotations->hasPages())
-        <div class="pager" style="padding: 12px 18px;">
-            {{ $quotations->links() }}
-        </div>
+        @if($quotations->total() > 0)
+            {{ $quotations->withQueryString()->links() }}
         @endif
     </section>
 </div>

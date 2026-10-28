@@ -135,16 +135,50 @@ class Lead extends Model
         return $this->hasMany(Project::class);
     }
 
+    /**
+     * Pill tone for the lead status (matches the .pill-* classes).
+     */
     public function statusTone(): string
     {
         return match (strtolower($this->status)) {
-            'new' => 'primary',
-            'contacted' => 'info',
-            'proposal' => 'purple',
-            'negotiation' => 'amber',
-            'won' => 'success',
-            'lost' => 'danger',
-            default => 'muted',
+            'new' => 'green',
+            'contacted' => 'blue',
+            'proposal' => 'amber',
+            'negotiation' => 'purple',
+            'won' => 'primary',
+            default => 'gray',
+        };
+    }
+
+    /**
+     * Display name for the department slug.
+     */
+    public function departmentLabel(): string
+    {
+        return match ($this->department) {
+            'construction' => 'Construction',
+            'interior' => 'Interior & Fit-Out',
+            'renovation' => 'Renovation',
+            'mep' => 'MEP Works',
+            default => ucfirst((string) $this->department) ?: '—',
+        };
+    }
+
+    /**
+     * Icon and pill tone for the lead source.
+     *
+     * @return array{0: string, 1: string}
+     */
+    public function sourceStyle(): array
+    {
+        return match ($this->source) {
+            'Email' => ['mail', 'red'],
+            'Website' => ['globe', 'blue'],
+            'Social Media' => ['share', 'purple'],
+            'Referral' => ['users', 'green'],
+            'Phone' => ['phone', 'amber'],
+            'Exhibition' => ['award', 'pink'],
+            default => ['info', 'gray'],
         };
     }
 }

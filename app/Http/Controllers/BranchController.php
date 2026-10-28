@@ -111,4 +111,38 @@ class BranchController extends Controller
 
         return redirect()->route('branches.index')->with('toast_info', "Branch {$name} deleted.");
     }
+
+    /**
+     * Switch active branch scope for the current session.
+     */
+    public function switchBranch(Request $request): RedirectResponse|JsonResponse
+    {
+        $user = $request->user();
+        $branchId = $request->input('branch_id');
+
+        if ($branchId === 'all') {
+            if (!$user->all_branches && !$user->isSuperAdmin()) {
+                return redirect()->back()->with('toast_error', 'You only have access to your assigned branch.');
+            }
+            session(['active_branch_id' => 'all']);
+            $label = 'All Branches';
+        } else {
+            $branch = Branch::findOrFail($branchId);
+            if (!$user->canAccessBranch($branch->id)) {
+                return redirect()->back()->with('toast_error', 'Access denied to this branch.');
+            }
+            session(['active_branch_id' => $branch->id]);
+            $label = $branch->name;
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'active_branch_id' => $branchId,
+                'label' => $label,
+            ]);
+        }
+
+        return redirect()->back()->with('toast_info', "Switched branch scope to {$label}.");
+    }
 }

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard · Rich Mount ERP</title>
+  <link rel="icon" href="images/rich-mount-logo.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="dashboard">
+<div class="app" id="app">
+  <!-- Sidebar and top bar are rendered by js/core.js so every page shares them -->
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation"></aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+
+    <main class="content" id="content">
+      <section class="page-head" id="pageHead">
+
+      </section>
+      <!-- Everything below the page header scrolls inside this box -->
+      <div class="dash-scroll">
+
+        <!-- KPIs -->
+        <section class="kpi-grid" id="kpis" aria-label="Key figures">
+
+        </section>
+
+  
+
+        <!-- Bottom row -->
+        <section class="bottom-grid">
+          <article class="card">
+            <header class="card-head recent-head">
+              <h2>Recent Leads</h2>
+              <div class="head-actions">
+                <label class="search-input recent-search"><svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input type="search" id="recentSearch" placeholder="Search leads by name, company, source..." aria-label="Search recent leads"></label>
+                <span class="select-wrap mini with-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg><select id="recentStatus" aria-label="Filter by status">
+                  <option value="">All Status</option>
+                  <option>New</option>
+                  <option>Contacted</option>
+                  <option>Proposal</option>
+                  <option>Negotiation</option>
+                  <option>Won</option>
+                  <option>Lost</option>
+                </select></span>
+                <span class="select-wrap mini with-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><select id="recentPeriod" aria-label="Date period">
+                  <option value="month" selected>This Month</option>
+                  <option value="7">Last 7 Days</option>
+                  <option value="30">Last 30 Days</option>
+                  <option value="year">This Year</option>
+                  <option value="all">All Time</option>
+                </select></span>
+              </div>
+            </header>
+            <div class="table-wrap recent-wrap">
+              <table class="table" id="recentTable">
+
+              </table>
+              <div class="pager" id="recentPager"></div>
+            </div>
+          </article>
+        </section>
+              <!-- Lead pipeline -->
+        <section class="card pipeline" id="pipeline">
+          <header class="card-head">
+            <h2 class="lg">Lead Pipeline</h2>
+            <div class="head-actions">
+              <span class="select-wrap mini with-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><select id="pipelinePeriod" aria-label="Pipeline period">
+                <option value="30">Last 30 Days</option>
+                <option value="90">Last 90 Days</option>
+                <option value="range">Filtered Period</option>
+              </select></span>
+            </div>
+          </header>
+          <div class="pipeline-grid" id="pipelineCols"></div>
+        </section>
+      </div>
+      <footer class="page-foot"><span>© 2026 Rich Mount ERP</span><span>Designed by ATTechinfoasis</span></footer>
+    </main>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/pages/dashboard.js"></script>
+</body>
+</html>

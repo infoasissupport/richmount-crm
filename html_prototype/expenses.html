@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Expenses · Rich Mount ERP</title>
+  <link rel="icon" href="images/rich-mount-logo.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="expenses">
+<div class="app" id="app">
+  <!-- Sidebar and top bar are rendered by js/core.js so every page shares them -->
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation"></aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+
+    <main class="content" id="content">
+      <section class="page-head" id="pageHead"></section>
+      <!-- Everything below the page header scrolls inside this box -->
+      <div class="dash-scroll">
+        <section class="kpi-grid four" id="kpis" aria-label="Key figures"></section>
+        <section class="card" id="expensesTable"></section>
+        <section class="card" id="transfersTable"></section>
+        <div class="two-col">
+          <section class="card" id="cashTable"></section>
+          <section class="card" id="paymentsTable"></section>
+        </div>
+      </div>
+      <footer class="page-foot"><span>© 2026 Rich Mount ERP</span><span>Designed by ATTechinfoasis</span></footer>
+    </main>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/pages/expenses.js"></script>
+</body>
+</html>

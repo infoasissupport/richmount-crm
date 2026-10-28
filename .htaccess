@@ -1,0 +1,28 @@
+# ==============================================================================
+# Rich Mount ERP — Root .htaccess for Shared Hosting (Hostinger / cPanel)
+# ==============================================================================
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Prevent direct access to sensitive configuration files & directories
+    RewriteRule ^(\.env|\.git|\.editorconfig|composer\.(json|lock)|package(-lock)?\.json|phpunit\.xml) - [F,L,NC]
+    RewriteRule ^(app|bootstrap|config|database|resources|routes|tests|storage/logs)/(.*) - [F,L,NC]
+
+    # Ensure Authorization header is passed to PHP for Laravel Sanctum API Tokens
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Redirect all web requests to the /public directory
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Block Directory Browsing
+Options -Indexes
+
+# Security Headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>

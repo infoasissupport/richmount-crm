@@ -39,6 +39,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('users', UserController::class);
 
     // Branch Management
+    Route::post('/switch-branch', [BranchController::class, 'switchBranch'])->name('branches.switch');
     Route::resource('branches', BranchController::class);
 
     // Profile & Password Settings

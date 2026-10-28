@@ -68,4 +68,31 @@ class BranchTest extends TestCase
             'name' => 'Dubai Main HQ',
         ]);
     }
+
+    public function test_user_can_switch_active_branch(): void
+    {
+        $admin = User::where('email', 'john.doe@richmount.ae')->first();
+        $branch = Branch::first();
+        $this->actingAs($admin);
+
+        $response = $this->post('/switch-branch', [
+            'branch_id' => $branch->id,
+        ]);
+
+        $response->assertSessionHas('active_branch_id', $branch->id);
+        $response->assertSessionHas('toast_info');
+    }
+
+    public function test_user_can_switch_to_all_branches(): void
+    {
+        $admin = User::where('email', 'john.doe@richmount.ae')->first();
+        $this->actingAs($admin);
+
+        $response = $this->post('/switch-branch', [
+            'branch_id' => 'all',
+        ]);
+
+        $response->assertSessionHas('active_branch_id', 'all');
+        $response->assertSessionHas('toast_info');
+    }
 }

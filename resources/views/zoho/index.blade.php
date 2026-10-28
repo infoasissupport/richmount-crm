@@ -68,7 +68,7 @@
     </section>
 
     {{-- Sync Logs Table --}}
-    <section class="card" id="zohoLog" style="margin-top: 20px;">
+    <section class="card fill" id="zohoLog" style="margin-top: 20px;">
         <header class="card-head">
             <h2>
                 <span class="head-ic">
@@ -165,10 +165,8 @@
             </table>
         </div>
 
-        @if($logs->hasPages())
-            <div style="padding: 12px 16px;">
-                {{ $logs->links() }}
-            </div>
+        @if($logs->total() > 0)
+            {{ $logs->withQueryString()->links() }}
         @endif
     </section>
 </div>

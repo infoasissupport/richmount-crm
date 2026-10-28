@@ -191,10 +191,8 @@
             </table>
         </div>
 
-        @if($expenses->hasPages())
-            <div style="padding: 12px 16px;">
-                {{ $expenses->withQueryString()->links() }}
-            </div>
+        @if($expenses->total() > 0)
+            {{ $expenses->withQueryString()->links() }}
         @endif
     </section>
 

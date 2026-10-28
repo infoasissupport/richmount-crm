@@ -175,7 +175,7 @@
     </section>
 
     {{-- All Projects Table with status tabs --}}
-    <section class="card" id="projectsTable" style="margin-top: 20px;">
+    <section class="card fill" id="projectsTable" style="margin-top: 20px;">
         <header class="card-head">
             <h2>
                 <span class="head-ic">
@@ -276,10 +276,8 @@
             </table>
         </div>
 
-        @if($projects->hasPages())
-            <div style="padding: 12px 16px;">
-                {{ $projects->withQueryString()->links() }}
-            </div>
+        @if($projects->total() > 0)
+            {{ $projects->withQueryString()->links() }}
         @endif
     </section>
 </div>

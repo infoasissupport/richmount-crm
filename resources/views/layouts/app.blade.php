@@ -36,6 +36,7 @@
 {{-- Standard Icon Sprite & Global Scripts --}}
 <script src="{{ asset('js/icons.js') }}"></script>
 <script src="{{ asset('js/sidebar.js') }}"></script>
+<script src="{{ asset('js/file-drop.js') }}"></script>
 <script>
     // Setup AJAX CSRF
     window.csrfToken = '{{ csrf_token() }}';

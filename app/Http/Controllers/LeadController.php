@@ -149,7 +149,7 @@ class LeadController extends Controller
             ], 201);
         }
 
-        return redirect()->route('leads.show', $lead)->with('toast_success', "Lead {$lead->lead_number} created successfully.");
+        return $this->redirectAfterSave($request, $lead)->with('toast_success', "Lead {$lead->lead_number} created successfully.");
     }
 
     /**
@@ -180,6 +180,20 @@ class LeadController extends Controller
 
         $lead->update($validated);
 
+        // Attachments added from the edit form are appended to the existing ones
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $path = $file->store('lead_documents', 'public');
+                $lead->attachments()->create([
+                    'file_name' => $file->getClientOriginalName(),
+                    'file_path' => $path,
+                    'file_size' => $file->getSize(),
+                    'file_type' => $file->getClientOriginalExtension(),
+                    'uploaded_by_id' => $request->user()->id,
+                ]);
+            }
+        }
+
         // Activity log
         $lead->activities()->create([
             'user_id' => $request->user()->id,
@@ -197,7 +211,21 @@ class LeadController extends Controller
             ]);
         }
 
-        return redirect()->route('leads.show', $lead)->with('toast_success', "Lead {$lead->lead_number} updated.");
+        return $this->redirectAfterSave($request, $lead)->with('toast_success', "Lead {$lead->lead_number} updated.");
+    }
+
+    /**
+     * Forms opened elsewhere (e.g. the dashboard) send _return to come back to the same page;
+     * only same-app URLs are followed, otherwise go to the lead.
+     */
+    protected function redirectAfterSave(Request $request, Lead $lead): RedirectResponse
+    {
+        $return = $request->input('_return');
+        $root = url('/');
+        $sameApp = is_string($return)
+            && ($return === $root || str_starts_with($return, $root . '/') || str_starts_with($return, $root . '?'));
+
+        return $sameApp ? redirect()->to($return) : redirect()->route('leads.show', $lead);
     }
 
     /**

@@ -436,5 +436,12 @@
             m.style.display = 'none';
         }
     }
+
+    // ?open=edit / ?open=assign (links from the dashboard row menu) opens that modal on load
+    (function () {
+        var open = new URLSearchParams(window.location.search).get('open');
+        if (open === 'edit') openEditLeadModal();
+        if (open === 'assign') openAssignModal();
+    })();
 </script>
 @endsection

@@ -42,6 +42,8 @@
     'arrow-right': '<path d="M5 12h14M12 5l7 7-7 7"/>',
     'arrow-up': '<path d="m5 12 7-7 7 7M12 19V5"/>',
     'arrow-down': '<path d="M12 5v14M19 12l-7 7-7-7"/>',
+    'trending-up': '<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
+    'bar-chart': '<path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/>',
     'x': '<path d="M18 6 6 18M6 6l12 12"/>',
     'check': '<path d="M20 6 9 17l-5-5"/>',
     'check-circle': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',

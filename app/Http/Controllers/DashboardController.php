@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Branch;
+use App\Models\Lead;
+use App\Models\User;
 use App\Services\DashboardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,6 +39,16 @@ class DashboardController extends Controller
             ]);
         }
 
+        // data for the shared New / Edit Lead modal (only loaded for users who can use it)
+        $engineers = collect();
+        $clientNames = collect();
+        $nextLeadNumber = null;
+        if ($user->can('leads.create') || $user->can('leads.edit')) {
+            $engineers = User::where('role_name', 'engineer')->with('branch')->get();
+            $clientNames = Lead::accessibleBy($user)->distinct()->pluck('company_name')->filter()->values();
+            $nextLeadNumber = Lead::nextLeadNumber();
+        }
+
         return view('dashboard.index', compact(
             'user',
             'branches',
@@ -44,7 +56,10 @@ class DashboardController extends Controller
             'pipeline',
             'recentLeads',
             'period',
-            'pipelinePeriod'
+            'pipelinePeriod',
+            'engineers',
+            'clientNames',
+            'nextLeadNumber'
         ));
     }
 }

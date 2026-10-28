@@ -141,10 +141,8 @@
             </table>
         </div>
 
-        @if($users->hasPages())
-        <div class="pager" style="padding: 12px 18px;">
-            {{ $users->links() }}
-        </div>
+        @if($users->total() > 0)
+            {{ $users->withQueryString()->links() }}
         @endif
         <p class="lock-note" style="margin-top:10px; padding: 12px 18px;">
             <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg>

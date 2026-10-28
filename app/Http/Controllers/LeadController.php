@@ -160,13 +160,14 @@ class LeadController extends Controller
         $this->authorize('view', $lead);
 
         $lead->load(['branch', 'assignedEngineer', 'createdBy', 'quotations.preparedBy', 'attachments', 'activities.user']);
-        $engineers = User::where('role_name', 'engineer')->where('branch_id', $lead->branch_id)->get();
+        $engineers = User::where('role_name', 'engineer')->with('branch')->get();
+        $branches = Branch::active()->get();
 
         if (request()->wantsJson()) {
             return response()->json($lead);
         }
 
-        return view('leads.show', compact('lead', 'engineers'));
+        return view('leads.show', compact('lead', 'engineers', 'branches'));
     }
 
     /**

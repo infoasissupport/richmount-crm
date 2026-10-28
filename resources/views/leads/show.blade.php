@@ -250,8 +250,128 @@
     </div>
 </div>
 
+{{-- Edit Lead Modal --}}
+@can('leads.edit')
+<div class="modal-wrap" id="editLeadModal" style="display: none;" onclick="if(event.target === this) closeEditLeadModal()">
+    <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="editLeadModalTitle">
+        <div class="modal-head">
+            <div>
+                <h3 id="editLeadModalTitle">Edit Lead &bull; {{ $lead->lead_number }}</h3>
+                <p id="editLeadModalSub">{{ $lead->company_name }} &bull; {{ ucfirst($lead->stage) }}</p>
+            </div>
+            <button class="icon-btn" type="button" onclick="closeEditLeadModal()" aria-label="Close">
+                <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+            </button>
+        </div>
+        <form method="POST" action="{{ route('leads.update', $lead) }}">
+            @csrf
+            @method('PUT')
+
+            <div class="modal-body">
+                <div class="form-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
+                    <label class="field">
+                        <span class="field-label">Lead Number</span>
+                        <input value="{{ $lead->lead_number }}" readonly style="background: #F8F9FA;">
+                    </label>
+
+                    <label class="field">
+                        <span class="field-label">Lead Date</span>
+                        <input name="lead_date" type="date" value="{{ $lead->lead_date ? $lead->lead_date->format('Y-m-d') : date('Y-m-d') }}" required>
+                    </label>
+
+                    <div class="field" style="grid-column: span 2;">
+                        <label class="field-label">Client / Company Name <span style="color: var(--primary);">*</span></label>
+                        <input name="company_name" value="{{ $lead->company_name }}" required maxlength="120" placeholder="Client Name">
+                    </div>
+
+                    <label class="field">
+                        <span class="field-label">RFQ / PR Number</span>
+                        <input name="rfq_number" value="{{ $lead->rfq_number }}" maxlength="50" placeholder="RFQ / PR Number">
+                    </label>
+
+                    <label class="field">
+                        <span class="field-label">Project Subject <span style="color: var(--primary);">*</span></span>
+                        <input name="subject" value="{{ $lead->subject }}" required maxlength="150" placeholder="Project Subject">
+                    </label>
+
+                    <label class="field">
+                        <span class="field-label">Contact Person</span>
+                        <input name="contact_person" value="{{ $lead->contact_person }}" maxlength="100" placeholder="Contact Person">
+                    </label>
+
+                    <label class="field">
+                        <span class="field-label">Phone</span>
+                        <input name="phone" value="{{ $lead->phone }}" maxlength="30" placeholder="Phone Number">
+                    </label>
+
+                    <label class="field">
+                        <span class="field-label">Email</span>
+                        <input name="email" type="email" value="{{ $lead->email }}" maxlength="100" placeholder="Email">
+                    </label>
+
+                    <label class="field">
+                        <span class="field-label">Budget / Estimated Value (AED)</span>
+                        <input name="estimated_value" type="number" step="100" min="0" value="{{ $lead->estimated_value }}" placeholder="0">
+                    </label>
+
+                    <label class="field">
+                        <span class="field-label">Source <span style="color: var(--primary);">*</span></span>
+                        <span class="select-wrap">
+                            <select name="source" required>
+                                @foreach(['Website', 'Referral', 'Exhibition', 'Email', 'Phone', 'Social Media'] as $src)
+                                    <option value="{{ $src }}" {{ $lead->source === $src ? 'selected' : '' }}>{{ $src }}</option>
+                                @endforeach
+                            </select>
+                        </span>
+                    </label>
+
+                    <label class="field">
+                        <span class="field-label">Branch <span style="color: var(--primary);">*</span></span>
+                        <span class="select-wrap">
+                            <select name="branch_id" required>
+                                @foreach($branches as $b)
+                                    <option value="{{ $b->id }}" {{ $lead->branch_id === $b->id ? 'selected' : '' }}>{{ $b->name }} ({{ $b->code }})</option>
+                                @endforeach
+                            </select>
+                        </span>
+                    </label>
+
+                    <label class="field" style="grid-column: span 2;">
+                        <span class="field-label">Assigned Engineer <span style="color: var(--primary);">*</span></span>
+                        <span class="select-wrap">
+                            <select name="assigned_engineer_id" required>
+                                <option value="">Select Engineer</option>
+                                @foreach($engineers as $eng)
+                                    <option value="{{ $eng->id }}" {{ $lead->assigned_engineer_id == $eng->id ? 'selected' : '' }}>
+                                        {{ $eng->name }} ({{ $eng->branch?->short_name ?? 'All Branches' }})
+                                    </option>
+                                @endforeach
+                            </select>
+                        </span>
+                    </label>
+
+                    <label class="field" style="grid-column: span 2;">
+                        <span class="field-label">Notes &amp; Scope Requirements</span>
+                        <textarea name="notes" rows="3" maxlength="1000" placeholder="Notes & scope requirements">{{ $lead->notes }}</textarea>
+                    </label>
+                </div>
+            </div>
+
+            <div class="modal-foot">
+                <button class="btn btn-ghost" type="button" onclick="closeEditLeadModal()">Cancel</button>
+                <button class="btn btn-primary" type="submit">
+                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endcan
+
 {{-- Assign Engineer Modal --}}
-<div class="modal-wrap" id="assignModal" style="display: none;">
+@can('leads.assign')
+<div class="modal-wrap" id="assignModal" style="display: none;" onclick="if(event.target === this) closeAssignModal()">
     <div class="modal modal-sm" role="dialog" aria-modal="true">
         <div class="modal-head">
             <div>
@@ -271,7 +391,7 @@
                         <select name="engineer_id" required>
                             @foreach($engineers as $eng)
                                 <option value="{{ $eng->id }}" {{ $lead->assigned_engineer_id == $eng->id ? 'selected' : '' }}>
-                                    {{ $eng->name }} ({{ $eng->branch?->short_name }})
+                                    {{ $eng->name }} ({{ $eng->branch?->short_name ?? 'All Branches' }})
                                 </option>
                             @endforeach
                         </select>
@@ -285,13 +405,36 @@
         </form>
     </div>
 </div>
+@endcan
 
 <script>
+    function openEditLeadModal() {
+        var m = document.getElementById('editLeadModal');
+        if (m) {
+            m.style.display = 'flex';
+            m.classList.add('open');
+        }
+    }
+    function closeEditLeadModal() {
+        var m = document.getElementById('editLeadModal');
+        if (m) {
+            m.classList.remove('open');
+            m.style.display = 'none';
+        }
+    }
     function openAssignModal() {
-        document.getElementById('assignModal').style.display = 'grid';
+        var m = document.getElementById('assignModal');
+        if (m) {
+            m.style.display = 'flex';
+            m.classList.add('open');
+        }
     }
     function closeAssignModal() {
-        document.getElementById('assignModal').style.display = 'none';
+        var m = document.getElementById('assignModal');
+        if (m) {
+            m.classList.remove('open');
+            m.style.display = 'none';
+        }
     }
 </script>
 @endsection

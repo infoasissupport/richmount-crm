@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="733" height="2000" viewBox="0 0 733 2000" preserveAspectRatio="none">
+  <defs>
+    <!-- large circle on the right: lighter navy, crimson glow toward its lower-right edge -->
+    <radialGradient id="orb" gradientUnits="userSpaceOnUse" cx="560" cy="900" r="620">
+      <stop offset="0" stop-color="#1d2050"/>
+      <stop offset=".55" stop-color="#1c1d4b"/>
+      <stop offset=".85" stop-color="#3a1b45"/>
+      <stop offset="1" stop-color="#6a1a3c"/>
+    </radialGradient>
+    <linearGradient id="orbEdge" gradientUnits="userSpaceOnUse" x1="450" y1="600" x2="733" y2="1550">
+      <stop offset="0" stop-color="#3b3f86" stop-opacity=".55"/>
+      <stop offset=".6" stop-color="#5a2a5e" stop-opacity=".5"/>
+      <stop offset="1" stop-color="#b02a4f" stop-opacity=".7"/>
+    </linearGradient>
+
+    <!-- big hill behind "Branches / Settings" -->
+    <linearGradient id="hill" gradientUnits="userSpaceOnUse" x1="200" y1="1450" x2="733" y2="2000">
+      <stop offset="0" stop-color="#171943"/>
+      <stop offset=".7" stop-color="#1a1a45"/>
+      <stop offset="1" stop-color="#2a1a40"/>
+    </linearGradient>
+    <linearGradient id="hillEdge" gradientUnits="userSpaceOnUse" x1="300" y1="1450" x2="733" y2="1830">
+      <stop offset="0" stop-color="#2c2f6e" stop-opacity="0"/>
+      <stop offset=".45" stop-color="#5a2f62" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#d0315a" stop-opacity=".85"/>
+    </linearGradient>
+
+    <!-- thin arc from the left edge -->
+    <linearGradient id="arc" gradientUnits="userSpaceOnUse" x1="0" y1="1600" x2="480" y2="2000">
+      <stop offset="0" stop-color="#3a3e8a" stop-opacity=".35"/>
+      <stop offset=".6" stop-color="#5a2f62" stop-opacity=".5"/>
+      <stop offset="1" stop-color="#c02c55" stop-opacity=".8"/>
+    </linearGradient>
+
+    <!-- lighter blue mound, bottom-left -->
+    <radialGradient id="mound" gradientUnits="userSpaceOnUse" cx="150" cy="2000" r="420">
+      <stop offset="0" stop-color="#262a68"/>
+      <stop offset=".7" stop-color="#1f2259"/>
+      <stop offset="1" stop-color="#191b4a"/>
+    </radialGradient>
+    <linearGradient id="moundEdge" gradientUnits="userSpaceOnUse" x1="0" y1="1750" x2="330" y2="2000">
+      <stop offset="0" stop-color="#3d4192" stop-opacity=".5"/>
+      <stop offset="1" stop-color="#3d4192" stop-opacity=".2"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="733" height="2000" fill="#13133d"/>
+
+  <circle cx="939" cy="1060" r="494" fill="url(#orb)" stroke="url(#orbEdge)" stroke-width="2"/>
+
+  <circle cx="-326" cy="2600" r="1309" fill="url(#hill)" stroke="url(#hillEdge)" stroke-width="2.5"/>
+  <circle cx="-426" cy="2600" r="1087" fill="none" stroke="url(#arc)" stroke-width="2"/>
+  <circle cx="-157" cy="2300" r="572" fill="url(#mound)" stroke="url(#moundEdge)" stroke-width="2"/>
+</svg>

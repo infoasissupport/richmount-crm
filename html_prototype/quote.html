@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quotation · Rich Mount ERP</title>
+  <link rel="icon" href="images/rich-mount-logo.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="quote">
+<div class="app" id="app">
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation"></aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+
+    <main class="content" id="content">
+      <section class="page-head" id="pageHead"></section>
+      <!-- Everything below the page header scrolls inside this box -->
+      <div class="dash-scroll">
+
+        <!-- Open quotation workspace tabs (multi-window work) -->
+        <nav class="ws-tabs" id="wsTabs" aria-label="Open quotations" hidden></nav>
+
+        <!-- Workflow status -->
+        <section class="card status-bar">
+          <ol class="stepper wide" id="qStepper">
+            <li data-step="draft"><span>1</span>Draft</li>
+            <li data-step="pending"><span>2</span>Pending Approval</li>
+            <li data-step="approved"><span>3</span>Approved</li>
+            <li data-step="sent"><span>4</span>Sent</li>
+            <li data-step="awarded"><span>5</span>Awarded</li>
+          </ol>
+          <div class="autosave" id="autosave" aria-live="polite"></div>
+        </section>
+        <div class="info-box" id="qBanner" hidden></div>
+
+        <div class="q-layout">
+          <div class="q-main">
+            <!-- Customer & project (filled from the lead) -->
+            <section class="card">
+              <header class="card-head"><h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><circle cx="12" cy="12.5" r="2.2"/><path d="M8.5 18.5a3.5 3.5 0 0 1 7 0"/></svg></span>Customer &amp; Project</h2>
+                <a class="link-btn" id="leadLink" href="#">Open lead <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a></header>
+              <dl class="kv cols-2" id="qLeadKv">
+                <dt>Quote Number</dt><dd data-f="number"></dd>
+                <dt>Lead Number</dt><dd data-f="leadNumber"></dd>
+                <dt>Customer</dt><dd data-f="company"></dd>
+                <dt>Contact</dt><dd data-f="contact"></dd>
+                <dt>Project Subject</dt><dd data-f="subject"></dd>
+                <dt>Branch</dt><dd data-f="branch"></dd>
+                <dt>Quote Format</dt><dd data-f="format"></dd>
+                <dt>Assigned Engineer</dt><dd data-f="engineer"></dd>
+              </dl>
+              <form class="form-grid three q-meta" id="qMeta" novalidate>
+                <label class="field"><span class="field-label">Quote Date</span><input type="date" name="date" required></label>
+                <label class="field"><span class="field-label">Validity</span><span class="select-wrap"><select name="validity">
+                  <option value="15">15 days</option><option value="30">30 days</option><option value="45">45 days</option><option value="60">60 days</option></select></span></label>
+                <label class="field"><span class="field-label">Output</span><span class="select-wrap"><select name="output">
+                  <option value="tax">Quote with Total + Tax</option><option value="notax">Quote with Total without Tax</option><option value="tech">Technical Quote (no pricing)</option></select></span></label>
+              </form>
+            </section>
+
+            <!-- Line items -->
+            <section class="card">
+              <header class="card-head"><h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>Line Items</h2>
+                <div class="head-actions">
+                  <button class="btn btn-ghost btn-sm" type="button" id="addCatalog"><svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>Add from catalog</button>
+                  <button class="btn btn-soft btn-sm" type="button" id="addItem"><svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg>Add line item</button>
+                </div></header>
+              <div class="table-wrap page items-wrap">
+                <table class="table items-table">
+                  <thead><tr><th>#</th><th>Description</th><th class="num">Qty</th><th>Unit</th><th class="num">Unit Price (AED)</th><th class="num">Total Amount</th><th></th></tr></thead>
+                  <tbody id="itemsBody"></tbody>
+                </table>
+              </div>
+              <p class="hint items-hint" id="itemsHint">Add at least one line item with a description, quantity and unit price.</p>
+              <template id="tplLineItem">
+                <tr>
+                  <td class="li-no"></td>
+                  <td><textarea class="li-in li-desc" data-k="desc" rows="4" maxlength="500" placeholder="Item description" aria-label="Description"></textarea></td>
+                  <td class="num"><input class="li-in li-qty" data-k="qty" type="number" min="0" step="any" aria-label="Quantity"></td>
+                  <td><input class="li-in li-unit" data-k="unit" list="unitList" maxlength="12" placeholder="unit" aria-label="Unit"></td>
+                  <td class="num"><input class="li-in li-price" data-k="price" type="number" min="0" step="0.01" aria-label="Unit price"></td>
+                  <td class="num li-total"></td>
+                  <td class="ta-c"><button type="button" class="act" data-remove title="Remove line" aria-label="Remove line"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></td>
+                </tr>
+                <tr class="li-photo-row">
+                  <td></td>
+                  <td colspan="6"><div class="li-photo"></div></td>
+                </tr>
+              </template>
+              <datalist id="unitList"><option value="lump sum"><option value="m²"><option value="m³"><option value="m"><option value="ton"><option value="nos"><option value="set"><option value="day"></datalist>
+            </section>
+
+            <!-- Descriptions -->
+            <section class="card">
+              <form class="form-grid" id="qText" novalidate>
+                <label class="field full"><span class="field-label">Technical Description</span><textarea name="techDesc" rows="3" maxlength="2000"></textarea></label>
+                <label class="field full"><span class="field-label">Terms &amp; Conditions</span><textarea name="terms" rows="5" maxlength="2000"></textarea></label>
+                <label class="field full"><span class="field-label">Internal Notes</span><textarea name="notes" rows="2" maxlength="1000" placeholder="Not printed on the quotation"></textarea></label>
+              </form>
+            </section>
+
+            <!-- Attachments -->
+            <section class="card">
+              <header class="card-head"><h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></span>Attachments</h2></header>
+              <label class="field" id="attField"><span class="field-label">Add files</span><input type="file" id="attInput" multiple></label>
+              <ul class="file-list" id="attList"></ul>
+              <template id="tplAttachment"><li><svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg><span data-f="name"></span><button type="button" class="act" data-remove-att aria-label="Remove attachment"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></li></template>
+            </section>
+          </div>
+
+          <aside class="q-side">
+            <!-- Totals -->
+            <section class="card q-summary">
+              <header class="card-head"><h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18M7 6h1v4M16.71 13.88l.7.71-2.82 2.82"/></svg></span>Summary</h2></header>
+              <form id="qTotals" novalidate>
+                <div class="sum-row"><span>Subtotal</span><b data-f="subtotal"></b></div>
+                <div class="sum-row disc">
+                  <span>Discount</span>
+                  <span class="disc-ctl"><input type="number" name="discount" min="0" step="0.01" aria-label="Discount value">
+                    <span class="select-wrap mini"><select name="discountType" aria-label="Discount type"><option value="amt">AED</option><option value="pct">%</option></select></span></span>
+                </div>
+                <div class="sum-row sub"><span>Discount amount</span><span data-f="discount"></span></div>
+                <div class="sum-row"><span>Taxable amount</span><b data-f="taxable"></b></div>
+                <div class="sum-row">
+                  <span>VAT</span>
+                  <span class="select-wrap mini"><select name="taxRate" aria-label="VAT rate"><option value="0.05">5%</option><option value="0">0%</option></select></span>
+                </div>
+                <div class="sum-row sub"><span>VAT amount</span><span data-f="tax"></span></div>
+                <div class="sum-row grand"><span>Grand Total</span><b data-f="total"></b></div>
+              </form>
+            </section>
+
+            <!-- History -->
+            <section class="card">
+              <header class="card-head"><h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>Quotation History</h2></header>
+              <ul class="events" id="qHistory"></ul>
+            </section>
+          </aside>
+        </div>
+
+        <template id="tplEvent"><li class="ev"><span class="ev-dot"></span><div><strong data-f="text"></strong><small><span data-f="time"></span> · <span data-f="by"></span></small></div></li></template>
+      </div>
+      <footer class="page-foot"><span>© 2026 Rich Mount ERP</span><span>Designed by ATTechinfoasis</span></footer>
+    </main>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/pages/quote.js"></script>
+</body>
+</html>

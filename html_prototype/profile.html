@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Profile · Rich Mount ERP</title>
+  <link rel="icon" href="images/rich-mount-logo.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="profile">
+<div class="app" id="app">
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation"></aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+
+    <main class="content" id="content">
+      <section class="page-head" id="pageHead"></section>
+      <!-- Everything below the page header scrolls inside this box -->
+      <div class="dash-scroll">
+
+        <div class="detail-grid">
+          <section class="card profile-card" id="profileCard">
+            <div class="dr-hero">
+              <span class="tb-avatar xl" data-f="avatar"></span>
+              <div><h4 data-f="name"></h4><p data-f="email"></p></div>
+              <span class="role-chip" data-f="role"></span>
+            </div>
+            <dl class="kv">
+              <dt>Role</dt><dd data-f="role"></dd>
+              <dt>Branch access</dt><dd data-f="branches"></dd>
+              <dt>Data visibility</dt><dd data-f="scope"></dd>
+              <dt>Permissions</dt><dd data-f="count"></dd>
+              <dt>Two-factor</dt><dd><span class="pill pill-green"><i></i>Enabled</span></dd>
+            </dl>
+          </section>
+
+          <section class="card">
+            <header class="card-head"><h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Switch Demo User</h2></header>
+            <div class="user-switch" id="userSwitch"></div>
+            <p class="lock-note" style="margin-top:10px"><svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Demo only — in production each person signs in with their own account and permissions come from the server.</p>
+            <template id="tplUser">
+              <div class="us-item">
+                <span class="tb-avatar" data-f="avatar"></span>
+                <div><strong data-f="name"></strong><small><span data-f="role"></span> · <span data-f="email"></span></small></div>
+                <button type="button" class="btn btn-ghost btn-sm"><svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sign in</button>
+              </div>
+            </template>
+          </section>
+        </div>
+
+        <section class="card">
+          <header class="card-head"><h2><span class="head-ic"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></span>My Permissions</h2></header>
+          <ul class="perm-list" id="permList"></ul>
+        </section>
+      </div>
+      <footer class="page-foot"><span>© 2026 Rich Mount ERP</span><span>Designed by ATTechinfoasis</span></footer>
+    </main>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/pages/profile.js"></script>
+</body>
+</html>

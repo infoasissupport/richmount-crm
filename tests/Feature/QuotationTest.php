@@ -154,6 +154,27 @@ class QuotationTest extends TestCase
         $this->assertEquals($originalLineCount, $clone->lineItems()->count());
     }
 
+    public function test_clone_quotation_for_different_target_lead(): void
+    {
+        $estimator = User::where('role_name', 'estimation')->first();
+        $this->actingAs($estimator);
+
+        $original = Quotation::where('status', 'draft')->with('lineItems')->first();
+        $targetLead = Lead::where('id', '!=', $original->lead_id)->first();
+
+        $response = $this->post("/quotations/{$original->id}/clone", [
+            'lead_id' => $targetLead->id,
+        ]);
+        $response->assertRedirect();
+
+        $clone = Quotation::latest('id')->first();
+        $this->assertEquals($targetLead->id, $clone->lead_id);
+        $this->assertEquals($targetLead->branch_id, $clone->branch_id);
+        $this->assertNotEquals($original->quote_number, $clone->quote_number);
+        $this->assertEquals('draft', $clone->status);
+        $this->assertEquals($original->lineItems->count(), $clone->lineItems()->count());
+    }
+
     public function test_full_quotation_approval_workflow(): void
     {
         $superAdmin = User::where('role_name', 'super_admin')->first();
@@ -262,5 +283,51 @@ class QuotationTest extends TestCase
                 ],
             ],
         ]);
+    }
+
+    public function test_reopen_approved_quotation_moves_to_draft(): void
+    {
+        $superAdmin = User::where('role_name', 'super_admin')->first();
+        $this->actingAs($superAdmin);
+
+        $quote = Quotation::where('status', 'draft')->first();
+        $quote->update([
+            'status' => 'approved',
+            'approved_by_id' => $superAdmin->id,
+        ]);
+
+        $response = $this->post("/quotations/{$quote->id}/reopen", [
+            'reason' => 'Client requested adjustment to line item 1 quantities',
+        ]);
+        $response->assertRedirect("/quotations/builder?id={$quote->id}");
+
+        $quote->refresh();
+        $this->assertEquals('draft', $quote->status);
+        $this->assertNull($quote->approved_by_id);
+
+        $history = $quote->histories()->where('action', 'reopened')->first();
+        $this->assertNotNull($history);
+        $this->assertStringContainsString('Client requested adjustment', $history->text);
+    }
+
+    public function test_reopen_sent_quotation_increments_revision_number(): void
+    {
+        $superAdmin = User::where('role_name', 'super_admin')->first();
+        $this->actingAs($superAdmin);
+
+        $quote = Quotation::where('status', 'draft')->first();
+        $originalNumber = $quote->quote_number;
+        $quote->update([
+            'status' => 'sent',
+        ]);
+
+        $response = $this->post("/quotations/{$quote->id}/reopen", [
+            'reason' => 'Revised pricing agreed after client meeting',
+        ]);
+        $response->assertRedirect("/quotations/builder?id={$quote->id}");
+
+        $quote->refresh();
+        $this->assertEquals('draft', $quote->status);
+        $this->assertEquals("{$originalNumber}_R1", $quote->quote_number);
     }
 }

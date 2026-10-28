@@ -45,13 +45,12 @@
             </button>
 
             @can('quotes.create')
-            <form action="{{ route('quotations.clone', $quote) }}" method="POST" style="display:inline;">
-                @csrf
-                <button class="btn btn-ghost" type="submit">
-                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-clipboard"/></svg>
-                    Clone
-                </button>
-            </form>
+            @if($quote)
+            <button class="btn btn-ghost" type="button" onclick="openCloneModal()">
+                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-clipboard"/></svg>
+                Clone
+            </button>
+            @endif
             @endcan
 
             {{-- Workflow Buttons based on status & role --}}
@@ -632,6 +631,48 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
 </div>
 @endif
 
+@if($quote)
+{{-- Clone Quotation Modal matching prototype --}}
+<div class="modal-wrap" id="cloneModal" style="display: none;" onclick="if(event.target === this) closeCloneModal()">
+    <div class="modal modal-md" role="dialog" aria-modal="true" aria-labelledby="cloneModalTitle" style="max-width: 520px;">
+        <div class="modal-head">
+            <div>
+                <h3 id="cloneModalTitle">Clone {{ $quote->quote_number }}</h3>
+                <p>Creates a new draft with the same line items. The original quotation is not changed.</p>
+            </div>
+            <button class="icon-btn" type="button" onclick="closeCloneModal()" aria-label="Close">
+                <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+            </button>
+        </div>
+        <form id="cloneForm" method="POST" action="{{ route('quotations.clone', $quote) }}">
+            @csrf
+            <div class="modal-body" style="padding: 20px;">
+                <label class="field" style="margin: 0;">
+                    <span class="field-label" style="font-weight: 600; font-size: 13px; margin-bottom: 8px; display: block;">Create the copy for</span>
+                    <span class="select-wrap">
+                        <select name="lead_id" id="cloneLeadSelect" required>
+                            <option value="{{ $lead->id }}">Same Lead &mdash; {{ $lead->lead_number }} &bull; {{ $lead->company_name ?: $lead->customer_name }}</option>
+                            @foreach($availableLeads as $al)
+                                @if($al->id !== $lead->id)
+                                    <option value="{{ $al->id }}">{{ $al->lead_number }} &bull; {{ $al->company_name ?: $al->customer_name }} &mdash; {{ $al->subject }}</option>
+                                @endif
+                            @endforeach
+                        </select>
+                    </span>
+                </label>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" type="button" onclick="closeCloneModal()">Cancel</button>
+                <button class="btn btn-primary" type="submit">
+                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-plus"/></svg>
+                    Clone Quotation
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
+
 {{-- Interactive Quotation Preview Modal matching prototype --}}
 <div class="modal-wrap" id="quotePreviewModal" style="display:none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.5); place-items: center; padding: 20px; overflow-y: auto;">
     <div class="modal modal-lg" style="background: #fff; border-radius: 12px; width: 100%; max-width: 900px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
@@ -846,6 +887,21 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
     function closeSendModal() {
         var modal = document.getElementById('sendModal');
         if (modal) modal.style.display = 'none';
+    }
+
+    function openCloneModal() {
+        var modal = document.getElementById('cloneModal');
+        if (modal) {
+            modal.style.display = 'grid';
+            modal.classList.add('open');
+        }
+    }
+    function closeCloneModal() {
+        var modal = document.getElementById('cloneModal');
+        if (modal) {
+            modal.classList.remove('open');
+            modal.style.display = 'none';
+        }
     }
 
     function toggleMinimize() {

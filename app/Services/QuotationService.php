@@ -124,9 +124,9 @@ class QuotationService
     /**
      * Clone an existing quotation into a new draft.
      */
-    public function cloneQuote(Quotation $source, User $author): Quotation
+    public function cloneQuote(Quotation $source, User $author, ?int $targetLeadId = null): Quotation
     {
-        return DB::transaction(function () use ($source, $author) {
+        return DB::transaction(function () use ($source, $author, $targetLeadId) {
             $clone = $source->replicate([
                 'quote_number',
                 'status',
@@ -136,6 +136,12 @@ class QuotationService
                 'created_at',
                 'updated_at',
             ]);
+
+            if ($targetLeadId) {
+                $targetLead = Lead::findOrFail($targetLeadId);
+                $clone->lead_id = $targetLead->id;
+                $clone->branch_id = $targetLead->branch_id;
+            }
 
             $clone->quote_number = Quotation::nextQuoteNumber();
             $clone->prepared_by_id = $author->id;

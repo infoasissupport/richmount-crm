@@ -139,11 +139,11 @@ class QuotationController extends Controller
                 ->with('toast_info', 'Please create a lead first before opening the quotation builder.');
         }
 
-        // Available leads for switching if drafting a new quote
+        // Available leads for switching if drafting a new quote or cloning
         $availableLeads = Lead::accessibleBy($user)
-            ->whereIn('stage', ['new', 'draft'])
+            ->whereNotIn('stage', ['awarded', 'lost'])
             ->latest()
-            ->take(20)
+            ->take(50)
             ->get();
 
         // Open workspace tabs (quotes in draft/pending)
@@ -241,7 +241,8 @@ class QuotationController extends Controller
     {
         $this->authorize('create', Quotation::class);
 
-        $clone = $this->quotationService->cloneQuote($quotation, $request->user());
+        $targetLeadId = $request->input('lead_id');
+        $clone = $this->quotationService->cloneQuote($quotation, $request->user(), $targetLeadId ? (int)$targetLeadId : null);
 
         if ($request->wantsJson()) {
             return response()->json([

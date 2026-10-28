@@ -154,6 +154,27 @@ class QuotationTest extends TestCase
         $this->assertEquals($originalLineCount, $clone->lineItems()->count());
     }
 
+    public function test_clone_quotation_for_different_target_lead(): void
+    {
+        $estimator = User::where('role_name', 'estimation')->first();
+        $this->actingAs($estimator);
+
+        $original = Quotation::where('status', 'draft')->with('lineItems')->first();
+        $targetLead = Lead::where('id', '!=', $original->lead_id)->first();
+
+        $response = $this->post("/quotations/{$original->id}/clone", [
+            'lead_id' => $targetLead->id,
+        ]);
+        $response->assertRedirect();
+
+        $clone = Quotation::latest('id')->first();
+        $this->assertEquals($targetLead->id, $clone->lead_id);
+        $this->assertEquals($targetLead->branch_id, $clone->branch_id);
+        $this->assertNotEquals($original->quote_number, $clone->quote_number);
+        $this->assertEquals('draft', $clone->status);
+        $this->assertEquals($original->lineItems->count(), $clone->lineItems()->count());
+    }
+
     public function test_full_quotation_approval_workflow(): void
     {
         $superAdmin = User::where('role_name', 'super_admin')->first();

@@ -70,4 +70,9 @@ class QuotationPolicy
     {
         return $user->can('quotes.award') && in_array($quote->status, ['sent', 'approved']);
     }
+
+    public function reopen(User $user, Quotation $quote): bool
+    {
+        return $user->can('quotes.edit') && in_array($quote->status, ['approved', 'sent']);
+    }
 }

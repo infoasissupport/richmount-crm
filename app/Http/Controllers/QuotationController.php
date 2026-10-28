@@ -139,11 +139,11 @@ class QuotationController extends Controller
                 ->with('toast_info', 'Please create a lead first before opening the quotation builder.');
         }
 
-        // Available leads for switching if drafting a new quote
+        // Available leads for switching if drafting a new quote or cloning
         $availableLeads = Lead::accessibleBy($user)
-            ->whereIn('stage', ['new', 'draft'])
+            ->whereNotIn('stage', ['awarded', 'lost'])
             ->latest()
-            ->take(20)
+            ->take(50)
             ->get();
 
         // Open workspace tabs (quotes in draft/pending)
@@ -153,7 +153,12 @@ class QuotationController extends Controller
             ->take(8)
             ->get();
 
-        return view('quotations.builder', compact('quote', 'lead', 'openQuotes', 'availableLeads'));
+        // Branch engineers for reassignment when editing/reopening
+        $branchEngineers = User::where('role_name', 'engineer')
+            ->when($lead->branch_id, fn($q) => $q->where(fn($sq) => $sq->where('branch_id', $lead->branch_id)->orWhereNull('branch_id')))
+            ->get();
+
+        return view('quotations.builder', compact('quote', 'lead', 'openQuotes', 'availableLeads', 'branchEngineers'));
     }
 
     /**
@@ -241,7 +246,8 @@ class QuotationController extends Controller
     {
         $this->authorize('create', Quotation::class);
 
-        $clone = $this->quotationService->cloneQuote($quotation, $request->user());
+        $targetLeadId = $request->input('lead_id');
+        $clone = $this->quotationService->cloneQuote($quotation, $request->user(), $targetLeadId ? (int)$targetLeadId : null);
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -334,6 +340,37 @@ class QuotationController extends Controller
         }
 
         return redirect()->back()->with('toast_success', "Quotation {$quotation->quote_number} marked as Awarded.");
+    }
+
+    /**
+     * Reopen an approved or sent quotation back to draft for editing.
+     */
+    public function reopen(Quotation $quotation, Request $request): RedirectResponse|JsonResponse
+    {
+        $this->authorize('reopen', $quotation);
+
+        $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+            'engineer_id' => ['nullable', 'exists:users,id'],
+        ]);
+
+        $quote = $this->quotationService->reopenQuote(
+            $quotation,
+            $request->user(),
+            $request->input('reason'),
+            $request->filled('engineer_id') ? (int)$request->input('engineer_id') : null
+        );
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Quotation {$quote->quote_number} moved back to Draft.",
+                'quotation' => $quote->load('lineItems'),
+            ]);
+        }
+
+        return redirect()->route('quotations.builder', ['id' => $quote->id])
+            ->with('toast_info', "Quotation {$quote->quote_number} moved to Draft. You can now edit and re-submit for approval.");
     }
 
     /**

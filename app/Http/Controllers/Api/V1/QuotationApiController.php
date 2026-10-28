@@ -147,4 +147,27 @@ class QuotationApiController extends Controller
             'message' => 'Quotation marked as Awarded.',
         ]);
     }
+
+    public function reopen(Quotation $quotation, Request $request): JsonResponse
+    {
+        $this->authorize('reopen', $quotation);
+
+        $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+            'engineer_id' => ['nullable', 'exists:users,id'],
+        ]);
+
+        $quote = $this->quotationService->reopenQuote(
+            $quotation,
+            $request->user(),
+            $request->input('reason'),
+            $request->filled('engineer_id') ? (int)$request->input('engineer_id') : null
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => "Quotation {$quote->quote_number} moved back to Draft.",
+            'quotation' => $quote->load('lineItems'),
+        ]);
+    }
 }

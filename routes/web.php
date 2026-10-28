@@ -64,6 +64,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/quotations/{quotation}/reject', [QuotationController::class, 'reject'])->name('quotations.reject');
     Route::post('/quotations/{quotation}/send', [QuotationController::class, 'send'])->name('quotations.send');
     Route::post('/quotations/{quotation}/award', [QuotationController::class, 'award'])->name('quotations.award');
+    Route::post('/quotations/{quotation}/reopen', [QuotationController::class, 'reopen'])->name('quotations.reopen');
     Route::get('/quotations/{quotation}/pdf', [QuotationController::class, 'downloadPdf'])->name('quotations.pdf');
     Route::resource('quotations', QuotationController::class)->except(['create', 'edit']);
 

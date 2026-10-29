@@ -29,6 +29,17 @@ class StoreQuotationRequest extends FormRequest
             'items.*.quantity' => ['nullable', 'numeric', 'min:0'],
             'items.*.unit' => ['nullable', 'string', 'max:20'],
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0'],
+            // paths returned by the line photo upload (checked again in QuotationService)
+            'items.*.photos' => ['nullable', 'array', 'max:3'],
+            'items.*.photos.*' => ['string', 'max:255'],
+            // "Submit for Approval" in the builder: save, then submit (QuotationController::submitAfterSave)
+            'submit_for_approval' => ['nullable', 'boolean'],
+            // Attachments card: the full current list (QuotationService::syncAttachments)
+            'attachments_sync' => ['nullable', 'boolean'],
+            'attachments' => ['nullable', 'array', 'max:30'],
+            'attachments.*.path' => ['required', 'string', 'max:255'],
+            'attachments.*.name' => ['nullable', 'string', 'max:255'],
+            'attachments.*.size' => ['nullable', 'integer', 'min:0'],
         ];
     }
 }

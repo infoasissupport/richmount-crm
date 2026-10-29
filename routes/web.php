@@ -57,6 +57,8 @@ Route::middleware('auth')->group(function () {
 
     // Phase 2: Quotations Workflow & Builder
     Route::get('/quotations/builder', [QuotationController::class, 'builder'])->name('quotations.builder');
+    Route::post('/quotations/line-photos', [QuotationController::class, 'uploadLinePhoto'])->name('quotations.line-photo');
+    Route::post('/quotations/attachments', [QuotationController::class, 'uploadAttachment'])->name('quotations.attachment');
     Route::post('/quotations/{quotation}/autosave', [QuotationController::class, 'autosave'])->name('quotations.autosave');
     Route::post('/quotations/{quotation}/clone', [QuotationController::class, 'clone'])->name('quotations.clone');
     Route::post('/quotations/{quotation}/submit', [QuotationController::class, 'submit'])->name('quotations.submit');
@@ -66,6 +68,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/quotations/{quotation}/award', [QuotationController::class, 'award'])->name('quotations.award');
     Route::post('/quotations/{quotation}/reopen', [QuotationController::class, 'reopen'])->name('quotations.reopen');
     Route::get('/quotations/{quotation}/pdf', [QuotationController::class, 'downloadPdf'])->name('quotations.pdf');
+    Route::get('/quotations/{quotation}/document', [QuotationController::class, 'document'])->name('quotations.document');
     Route::resource('quotations', QuotationController::class)->except(['create', 'edit']);
 
     // Phase 3: Projects, PO, Work Completion, Invoicing

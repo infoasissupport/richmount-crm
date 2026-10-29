@@ -33,14 +33,10 @@
                     <svg class="ic nav-chev" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-right"/></svg>
                 </a>
                 <div class="nav-sub">
-                    <a class="nav-subitem {{ request()->routeIs('leads.index') && !request()->has('new') && !request()->has('assign') ? 'active' : '' }}" href="{{ route('leads.index') }}">All Leads</a>
+                    <a class="nav-subitem {{ request()->routeIs('leads.index') && !request()->has('new') ? 'active' : '' }}" href="{{ route('leads.index') }}">All Leads</a>
                     @can('leads.create')
                     <a class="nav-subitem {{ request()->routeIs('leads.index') && request()->get('new') == 1 ? 'active' : '' }}" href="{{ route('leads.index', ['new' => 1]) }}">Add Lead</a>
                     @endcan
-                    @can('leads.assign')
-                    <a class="nav-subitem {{ request()->routeIs('leads.index') && request()->get('assign') == 1 ? 'active' : '' }}" href="{{ route('leads.index', ['assign' => 1]) }}">Assign Engineer</a>
-                    @endcan
-                    <a class="nav-subitem" href="{{ url('/#pipeline') }}">Lead Pipeline</a>
                 </div>
             </div>
             @endcan
@@ -54,13 +50,14 @@
                     <svg class="ic nav-chev" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-right"/></svg>
                 </a>
                 <div class="nav-sub">
-                    <a class="nav-subitem {{ request()->routeIs('quotations.index') && !request()->has('status') ? 'active' : '' }}" href="{{ route('quotations.index') }}">All Quotations</a>
+                    {{-- the Quotations list filters on ?tab=…; Create Quotation opens its lead picker popup (?create=1) --}}
+                    <a class="nav-subitem {{ request()->routeIs('quotations.index') && in_array(request('tab', 'all'), ['all', '']) && !request()->has('create') ? 'active' : '' }}" href="{{ route('quotations.index') }}">All Quotations</a>
                     @can('quotes.create')
-                    <a class="nav-subitem {{ request()->routeIs('quotations.builder') ? 'active' : '' }}" href="{{ route('quotations.builder') }}">Create Quotation</a>
+                    <a class="nav-subitem {{ request()->routeIs('quotations.index') && request('create') == 1 ? 'active' : '' }}" href="{{ route('quotations.index', ['create' => 1]) }}">Create Quotation</a>
                     @endcan
-                    <a class="nav-subitem {{ request()->get('status') === 'pending' ? 'active' : '' }}" href="{{ route('quotations.index', ['status' => 'pending']) }}">Pending Approval</a>
-                    <a class="nav-subitem {{ request()->get('status') === 'sent' ? 'active' : '' }}" href="{{ route('quotations.index', ['status' => 'sent']) }}">Sent Quotations</a>
-                    <a class="nav-subitem {{ request()->get('status') === 'awarded' ? 'active' : '' }}" href="{{ route('quotations.index', ['status' => 'awarded']) }}">Awarded Quotes</a>
+                    <a class="nav-subitem {{ request()->routeIs('quotations.index') && request('tab') === 'pending' ? 'active' : '' }}" href="{{ route('quotations.index', ['tab' => 'pending']) }}">Pending Approval</a>
+                    <a class="nav-subitem {{ request()->routeIs('quotations.index') && request('tab') === 'sent' ? 'active' : '' }}" href="{{ route('quotations.index', ['tab' => 'sent']) }}">Sent Quotations</a>
+                    <a class="nav-subitem {{ request()->routeIs('quotations.index') && request('tab') === 'awarded' ? 'active' : '' }}" href="{{ route('quotations.index', ['tab' => 'awarded']) }}">Awarded Quotes</a>
                 </div>
             </div>
             @endcan

@@ -28,16 +28,6 @@ class DashboardService
         $projectQuery = Project::accessibleBy($user);
         $expenseQuery = Expense::accessibleBy($user);
 
-        // Date range boundaries for trends
-        $now = now();
-        $startCurrent = match ($period) {
-            '7' => $now->copy()->subDays(7),
-            '30' => $now->copy()->subDays(30),
-            'year' => $now->copy()->startOfYear(),
-            'all' => Carbon::createFromTimestamp(0),
-            default => $now->copy()->startOfMonth(),
-        };
-
         if ($user->isEngineer()) {
             // Engineer Tailored KPIs
             $myLeadsCount = Lead::where('assigned_engineer_id', $user->id)->count();
@@ -153,33 +143,7 @@ class DashboardService
 
         if ($user->isSuperAdmin()) {
             // Super Admin KPIs (prototype admin set): period totals, trend vs the same period last year
-            $to = $now->copy();
-            $from = $startCurrent;
-            $hasTrend = $period !== 'all';
-
-            $kpi = function (string $key, string $label, string $icon, callable $calc, bool $money, string $href) use ($from, $to, $hasTrend) {
-                $current = $calc($from, $to);
-                $previous = $hasTrend ? $calc($from->copy()->subYear(), $to->copy()->subYear()) : 0;
-                $trend = null;
-                $note = null;
-
-                if ($hasTrend && $previous) {
-                    $pct = ($current - $previous) / abs($previous) * 100;
-                    $trend = ['direction' => $pct >= 0 ? 'up' : 'down', 'pct' => (int) round(abs($pct))];
-                } elseif ($hasTrend) {
-                    $note = 'No data last year';
-                }
-
-                return [
-                    'key' => $key,
-                    'label' => $label,
-                    'value' => $money ? $this->formatAedCompact($current) : number_format($current),
-                    'icon' => $icon,
-                    'note' => $note,
-                    'trend' => $trend,
-                    'href' => $href,
-                ];
-            };
+            $kpi = fn (...$args) => $this->periodKpi($period, ...$args);
 
             return [
                 $kpi('leads', 'Total Leads', 'users',
@@ -330,6 +294,104 @@ class DashboardService
                 'foot_icon' => null,
                 'foot_url' => route('quotations.index', ['tab' => 'awarded']),
             ],
+        ];
+    }
+
+    /**
+     * Lead Management KPIs (prototype set): leads and quotation counts for the period, trend vs last year.
+     */
+    public function getLeadKpis(User $user, string $period = 'all'): array
+    {
+        $leadQuery = Lead::accessibleBy($user);
+
+        return [
+            $this->periodKpi($period, 'leads', 'Total Leads', 'users',
+                fn ($a, $b) => (clone $leadQuery)->whereBetween('created_at', [$a, $b])->count(),
+                false, route('leads.index')),
+            ...$this->quotationStageKpis($user, $period),
+        ];
+    }
+
+    /**
+     * Quotations page KPIs (prototype set): quotation counts for the period, trend vs last year.
+     */
+    public function getQuotationKpis(User $user, string $period = 'all'): array
+    {
+        $quoteQuery = Quotation::accessibleBy($user);
+
+        return [
+            $this->periodKpi($period, 'quotes', 'Quotations', 'file-text',
+                fn ($a, $b) => (clone $quoteQuery)->whereBetween('quote_date', [$a->toDateString(), $b->toDateString()])->count(),
+                false, route('quotations.index')),
+            ...$this->quotationStageKpis($user, $period),
+        ];
+    }
+
+    /**
+     * Draft / Sent / Awarded quotation tiles shared by the Lead Management and Quotations pages.
+     */
+    protected function quotationStageKpis(User $user, string $period): array
+    {
+        $quoteQuery = Quotation::accessibleBy($user);
+        $dates = fn ($a, $b) => [$a->toDateString(), $b->toDateString()];
+
+        return [
+            $this->periodKpi($period, 'draft_quotes', 'Draft Quotations', 'file-text',
+                fn ($a, $b) => (clone $quoteQuery)->whereIn('status', ['draft', 'pending', 'approved', 'rejected'])->whereBetween('quote_date', $dates($a, $b))->count(),
+                false, route('quotations.index', ['tab' => 'draft'])),
+            // no sent date is stored, so sent quotations are counted by their quote date
+            $this->periodKpi($period, 'sent_quotes', 'Sent Quotations', 'send',
+                fn ($a, $b) => (clone $quoteQuery)->where('status', 'sent')->whereBetween('quote_date', $dates($a, $b))->count(),
+                false, route('quotations.index', ['tab' => 'sent'])),
+            $this->periodKpi($period, 'awarded', 'Awarded Quotes', 'award',
+                fn ($a, $b) => (clone $quoteQuery)->where('status', 'awarded')->whereBetween('award_date', $dates($a, $b))->count(),
+                false, route('quotations.index', ['tab' => 'awarded'])),
+        ];
+    }
+
+    /**
+     * Start of a period filter value (month, 7, 30, year, all).
+     */
+    public function periodStart(string $period): Carbon
+    {
+        return match ($period) {
+            '7' => now()->subDays(7),
+            '30' => now()->subDays(30),
+            'year' => now()->startOfYear(),
+            'all' => Carbon::createFromTimestamp(0),
+            default => now()->startOfMonth(),
+        };
+    }
+
+    /**
+     * One KPI tile for the period: $calc($from, $to) gives the value; the badge compares it with
+     * the same period last year (no badge for "all time", "No data last year" when there is nothing to compare).
+     */
+    protected function periodKpi(string $period, string $key, string $label, string $icon, callable $calc, bool $money, string $href): array
+    {
+        $from = $this->periodStart($period);
+        $to = now();
+        $hasTrend = $period !== 'all';
+        $current = $calc($from, $to);
+        $previous = $hasTrend ? $calc($from->copy()->subYear(), $to->copy()->subYear()) : 0;
+        $trend = null;
+        $note = null;
+
+        if ($hasTrend && $previous) {
+            $pct = ($current - $previous) / abs($previous) * 100;
+            $trend = ['direction' => $pct >= 0 ? 'up' : 'down', 'pct' => (int) round(abs($pct))];
+        } elseif ($hasTrend) {
+            $note = 'No data last year';
+        }
+
+        return [
+            'key' => $key,
+            'label' => $label,
+            'value' => $money ? $this->formatAedCompact($current) : number_format($current),
+            'icon' => $icon,
+            'note' => $note,
+            'trend' => $trend,
+            'href' => $href,
         ];
     }
 

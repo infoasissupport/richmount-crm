@@ -81,6 +81,25 @@ class Quotation extends Model
     }
 
     /**
+     * Only each lead's latest quotation: newest created_at, the higher id breaking ties (ids follow insert order).
+     * The choice is made across all of the lead's (non-deleted) quotations before any other filter, so every
+     * field shown — number, total, date, status — comes from that one record. Quote numbers are not used:
+     * revisions keep their number (…_R1) and clones take the next free one.
+     */
+    public function scopeLatestPerLead(Builder $query): Builder
+    {
+        return $query->where($query->qualifyColumn('id'), function ($latest) {
+            $latest->select('q2.id')
+                ->from('quotations as q2')
+                ->whereColumn('q2.lead_id', 'quotations.lead_id')
+                ->whereNull('q2.deleted_at')
+                ->orderByDesc('q2.created_at')
+                ->orderByDesc('q2.id')
+                ->limit(1);
+        });
+    }
+
+    /**
      * Generate sequential quotation number.
      */
     public static function nextQuoteNumber(): string
@@ -166,5 +185,46 @@ class Quotation extends Model
     public function project(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(Project::class);
+    }
+
+    /**
+     * "UAE DIRHAMS ONE THOUSAND ... AND FIFTY FILS ONLY" for the quotation document
+     * (same wording as the builder preview's amountWords()).
+     */
+    public static function amountInWords(float $amount): string
+    {
+        $cents = (int) round($amount * 100);
+        $aed = intdiv($cents, 100);
+        $fils = $cents % 100;
+
+        return 'UAE DIRHAMS ' . ($aed ? self::numberWords($aed) : 'ZERO')
+            . ($fils ? ' AND ' . self::numberWords($fils) . ' FILS' : '') . ' ONLY';
+    }
+
+    protected static function numberWords(int $n): string
+    {
+        $ones = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE',
+            'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
+        $tens = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
+
+        if ($n < 20) {
+            return $ones[$n];
+        }
+        if ($n < 100) {
+            return $tens[intdiv($n, 10)] . ($n % 10 ? ' ' . $ones[$n % 10] : '');
+        }
+        if ($n < 1000) {
+            return $ones[intdiv($n, 100)] . ' HUNDRED' . ($n % 100 ? ' AND ' . self::numberWords($n % 100) : '');
+        }
+        foreach ([[1_000_000_000, 'BILLION'], [1_000_000, 'MILLION'], [1_000, 'THOUSAND']] as [$value, $word]) {
+            if ($n >= $value) {
+                $rest = $n % $value;
+
+                return self::numberWords(intdiv($n, $value)) . ' ' . $word
+                    . ($rest ? ($rest < 100 ? ' AND ' : ' ') . self::numberWords($rest) : '');
+            }
+        }
+
+        return '';
     }
 }

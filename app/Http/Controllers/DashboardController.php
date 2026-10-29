@@ -49,6 +49,9 @@ class DashboardController extends Controller
             $nextLeadNumber = Lead::nextLeadNumber();
         }
 
+        // leads for the "Create quotation" popup (New Lead ▾ menu)
+        $availableLeads = $user->can('quotes.create') ? Lead::accessibleBy($user)->quotable()->get() : collect();
+
         return view('dashboard.index', compact(
             'user',
             'branches',
@@ -59,7 +62,8 @@ class DashboardController extends Controller
             'pipelinePeriod',
             'engineers',
             'clientNames',
-            'nextLeadNumber'
+            'nextLeadNumber',
+            'availableLeads'
         ));
     }
 }

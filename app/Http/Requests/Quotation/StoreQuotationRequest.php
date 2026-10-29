@@ -14,7 +14,8 @@ class StoreQuotationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'lead_id' => ['required', 'exists:leads,id'],
+            // needed to create a quotation; the edit form (PUT /quotations/{quotation}) doesn't send it — updates keep the lead
+            'lead_id' => [$this->route('quotation') ? 'nullable' : 'required', 'exists:leads,id'],
             'quote_date' => ['nullable', 'date'],
             'validity_days' => ['required', 'integer', 'in:15,30,45,60,90'],
             'output_type' => ['required', 'in:tax,notax,tech'],
@@ -25,6 +26,7 @@ class StoreQuotationRequest extends FormRequest
             'terms_conditions' => ['nullable', 'string', 'max:5000'],
             'internal_notes' => ['nullable', 'string', 'max:2000'],
             'items' => ['nullable', 'array'],
+            'items.*.type' => ['nullable', 'in:item,section,subdesc'],
             'items.*.description' => ['nullable', 'string'],
             'items.*.quantity' => ['nullable', 'numeric', 'min:0'],
             'items.*.unit' => ['nullable', 'string', 'max:20'],

@@ -1,4 +1,5 @@
-@extends('layouts.app')
+{{-- ?embed=1: shown inside the Quotations list's edit popup (layouts.embed, no sidebar / top bar / tabs bar) --}}
+@extends(request()->boolean('embed') ? 'layouts.embed' : 'layouts.app')
 
 @section('title', ($quote ? $quote->quote_number : 'New Quotation') . ' · Builder')
 @section('page_id', 'quote')
@@ -31,7 +32,7 @@
 <section class="page-head" id="pageHead">
     <div>
         <h1>{{ $quote ? 'Quotation ' . $quote->quote_number : 'New Quotation' }}</h1>
-        <p class="sub">{{ $lead->company_name }} &bull; {{ $lead->subject }}</p>
+        <p class="sub" style="text-transform: capitalize;">{{ $lead->company_name }} &middot; {{ $lead->subject }}</p>
     </div>
     <div class="page-actions" style="display: flex; align-items: center; gap: 8px;">
         @if($quote)
@@ -55,18 +56,16 @@
 
             {{-- Workflow Buttons based on status & role --}}
             @if(in_array($quote->status, ['draft', 'rejected']))
-                <button class="btn btn-soft" type="button" onclick="submitQuoteForm()">
-                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
+                <button class="btn btn-ghost" type="button" onclick="submitQuoteForm()">
+                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bookmark"/></svg>
                     Save Draft
                 </button>
                 @can('quotes.submit')
-                <form action="{{ route('quotations.submit', $quote) }}" method="POST" style="display:inline;">
-                    @csrf
-                    <button class="btn btn-primary" type="submit">
-                        <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-send"/></svg>
-                        Submit for Approval
-                    </button>
-                </form>
+                {{-- saves the form first, so edits made since the last save are submitted too --}}
+                <button class="btn btn-primary" type="button" onclick="openSubmitConfirm()">
+                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-send"/></svg>
+                    Submit for Approval
+                </button>
                 @endcan
             @elseif($quote->status === 'pending')
                 @can('quotes.approve')
@@ -74,13 +73,10 @@
                     <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
                     Reject
                 </button>
-                <form action="{{ route('quotations.approve', $quote) }}" method="POST" style="display:inline;">
-                    @csrf
-                    <button class="btn btn-primary" type="submit" style="background: #16A34A; border-color: #16A34A; color: #fff;">
-                        <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
-                        Approve
-                    </button>
-                </form>
+                <button class="btn btn-primary" type="button" onclick="openApproveModal()">
+                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
+                    Approve
+                </button>
                 @endcan
             @elseif($quote->status === 'approved')
                 @can('quotes.edit')
@@ -103,13 +99,10 @@
                 </button>
                 @endcan
                 @can('quotes.award')
-                <form action="{{ route('quotations.award', $quote) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark quotation as Awarded? This initiates project creation.');">
-                    @csrf
-                    <button class="btn btn-primary" type="submit">
-                        <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-award"/></svg>
-                        Mark as Awarded
-                    </button>
-                </form>
+                <button class="btn btn-primary" type="button" onclick="openAwardModal()">
+                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-award"/></svg>
+                    Mark as Awarded
+                </button>
                 @endcan
             @elseif($quote->status === 'awarded')
                 @if($quote->project)
@@ -119,27 +112,37 @@
                     </a>
                 @else
                     @can('projects.create')
-                    <form action="{{ route('projects.create-from-quote', $quote) }}" method="POST" style="display:inline;">
-                        @csrf
-                        <button class="btn btn-primary" type="submit">
-                            <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-briefcase"/></svg>
-                            Create Project
-                        </button>
-                    </form>
+                    <button class="btn btn-primary" type="button" onclick="openCreateProjectModal()">
+                        <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-briefcase"/></svg>
+                        Create Project
+                    </button>
                     @endcan
                 @endif
             @endif
         @else
-            <button class="btn btn-primary" type="button" onclick="submitQuoteForm()">
-                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
-                Create Draft Quotation
+            {{-- new quotation: Save Draft creates it; Submit for Approval creates it and submits it in one go --}}
+            <span class="pill pill-amber" style="margin-right: 4px;"><i></i>New draft</span>
+            <button class="btn btn-ghost" type="button" onclick="submitQuoteForm()">
+                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bookmark"/></svg>
+                Save Draft
             </button>
+            <button class="btn btn-ghost" type="button" onclick="openQuotePreviewModal()">
+                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"/></svg>
+                Preview
+            </button>
+            @can('quotes.submit')
+            <button class="btn btn-primary" type="button" onclick="openSubmitConfirm()">
+                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-send"/></svg>
+                Submit for Approval
+            </button>
+            @endcan
         @endif
     </div>
 </section>
 
-<div class="dash-scroll">
-    {{-- Open Quotation Workspace Tabs --}}
+<div class="dash-scroll q-builder-scroll">
+    {{-- Open Quotation Workspace Tabs (not in the edit popup) --}}
+    @unless(request()->boolean('embed'))
     <div class="ws-tabs-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0; gap: 8px;">
         <div style="display: flex; align-items: center; gap: 10px; overflow-x: auto; flex: 1;">
             <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted, #64748B); white-space: nowrap;">
@@ -162,6 +165,7 @@
             @endforeach
         </div>
     </div>
+    @endunless
 
     {{-- Workflow Status Stepper --}}
     @php
@@ -344,6 +348,49 @@
                                     @endif
                                 </div>
                             </div>
+                            <div class="split-btn section-btn-wrap" style="position: relative;">
+                                <button class="btn btn-ghost btn-sm" type="button" onclick="addSectionRow('PRELIMINARIES')" title="Add section heading (e.g. PRELIMINARIES)" style="color: #C00000; font-weight: 700; border-color: #F1C9D3; background: #FFF7F8;">
+                                    <svg class="ic sm" style="color: #C00000;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg>
+                                    Add Section
+                                </button>
+                                <button class="btn btn-ghost btn-sm split-caret" type="button" id="sectionMenuBtn" onclick="toggleSectionMenu(event)" aria-haspopup="menu" aria-expanded="false" title="Quick section presets" style="color: #C00000; border-color: #F1C9D3; background: #FFF7F8;">
+                                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+                                </button>
+                                <div class="popover catalog-menu" id="sectionMenu" role="menu" hidden style="width: 290px; top: calc(100% + 6px); right: 0;">
+                                    <div class="pop-head">Standard Heading Presets</div>
+                                    <button type="button" class="pop-item" role="menuitem" onclick="addSectionRow('PRELIMINARIES'); setSectionMenu(false);">
+                                        <span style="color: #C00000; font-weight: 700;">PRELIMINARIES<br><small style="color: var(--muted); font-weight: normal;">Mobilization, Tarkhees approvals, Site setup</small></span>
+                                    </button>
+                                    <button type="button" class="pop-item" role="menuitem" onclick="addSectionRow('DEMOLITION & SITE PREPARATION'); setSectionMenu(false);">
+                                        <span><b>DEMOLITION &amp; SITE PREPARATION</b><br><small style="color: var(--muted);">Dismantling, clearing &amp; waste disposal</small></span>
+                                    </button>
+                                    <button type="button" class="pop-item" role="menuitem" onclick="addSectionRow('CIVIL & MASONRY WORKS'); setSectionMenu(false);">
+                                        <span><b>CIVIL &amp; MASONRY WORKS</b><br><small style="color: var(--muted);">Blockwork, plastering, screed &amp; concrete</small></span>
+                                    </button>
+                                    <button type="button" class="pop-item" role="menuitem" onclick="addSectionRow('MEP WORKS'); setSectionMenu(false);">
+                                        <span><b>MEP WORKS</b><br><small style="color: var(--muted);">Electrical, containment &amp; plumbing</small></span>
+                                    </button>
+                                    <button type="button" class="pop-item" role="menuitem" onclick="addSectionRow('HVAC & AIR CONDITIONING'); setSectionMenu(false);">
+                                        <span><b>HVAC &amp; AIR CONDITIONING</b><br><small style="color: var(--muted);">Ducting, FCU, diffuser &amp; insulation</small></span>
+                                    </button>
+                                    <button type="button" class="pop-item" role="menuitem" onclick="addSectionRow('CEILING & GYPSUM PARTITIONS'); setSectionMenu(false);">
+                                        <span><b>CEILING &amp; GYPSUM PARTITIONS</b><br><small style="color: var(--muted);">False ceilings, drywalls, acoustic grid</small></span>
+                                    </button>
+                                    <button type="button" class="pop-item" role="menuitem" onclick="addSectionRow('JOINERY & CARPENTRY'); setSectionMenu(false);">
+                                        <span><b>JOINERY &amp; CARPENTRY</b><br><small style="color: var(--muted);">Doors, cabinetry, wall cladding &amp; veneer</small></span>
+                                    </button>
+                                    <button type="button" class="pop-item" role="menuitem" onclick="addSectionRow('FLOORING & WALL FINISHES'); setSectionMenu(false);">
+                                        <span><b>FLOORING &amp; WALL FINISHES</b><br><small style="color: var(--muted);">Tiles, marble, vinyl &amp; painting</small></span>
+                                    </button>
+                                    <button type="button" class="pop-item" role="menuitem" onclick="addSectionRow('GLASS & ALUMINIUM WORKS'); setSectionMenu(false);">
+                                        <span><b>GLASS &amp; ALUMINIUM WORKS</b><br><small style="color: var(--muted);">Glass partitions, doors &amp; shop fronts</small></span>
+                                    </button>
+                                    <div class="pop-div"></div>
+                                    <button type="button" class="pop-item" role="menuitem" onclick="addSectionRow(''); setSectionMenu(false);">
+                                        <span style="font-style: italic; color: var(--muted);">+ Blank / Custom Section Heading...</span>
+                                    </button>
+                                </div>
+                            </div>
                             <button class="btn btn-soft btn-sm" type="button" onclick="addLineItemRow()">
                                 <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg>
                                 Add Line Item
@@ -355,43 +402,69 @@
                         <table class="table items-table" id="itemsTable">
                             <thead>
                                 <tr>
-                                    <th style="width: 5%;">#</th>
-                                    <th style="width: 48%;">Description</th>
-                                    <th class="num" style="width: 12%;">Qty</th>
-                                    <th style="width: 12%;">Unit</th>
+                                    <th style="width: 4%;">#</th>
+                                    <th style="width: 45%;">Description</th>
+                                    <th class="num" style="width: 10%;">Qty</th>
+                                    <th style="width: 11%;">Unit</th>
                                     <th class="num" style="width: 13%;">Unit Price (AED)</th>
-                                    <th class="num" style="width: 15%;">Total Amount</th>
-                                    <th style="width: 5%;"></th>
+                                    <th class="num" style="width: 13%;">Total Amount</th>
+                                    <th class="ta-c" style="width: 120px;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="itemsBody">
                                 @php
                                     $existingItems = $quote ? $quote->lineItems : [];
+                                    $itemNumber = 0;
                                 @endphp
                                 @if(count($existingItems) > 0)
                                     @foreach($existingItems as $i => $item)
+                                        @if($item->isSection())
+                                            @include('quotations.partials.section-row', ['prefix' => "items[$i]", 'value' => $item->description])
+                                            @continue
+                                        @endif
+                                        @if($item->isSubDesc())
+                                            @include('quotations.partials.subdesc-row', ['prefix' => "items[$i]", 'value' => $item->description])
+                                            @continue
+                                        @endif
+                                        @php
+                                            $itemNumber++;
+                                            $groupRowspan = 1 + $existingItems->slice($i + 1)->takeWhile(fn ($next) => $next->isSubDesc())->count();
+                                        @endphp
                                         <tr class="item-row">
-                                            <td class="li-no">{{ $i + 1 }}</td>
+                                            <td class="li-no" rowspan="{{ $groupRowspan }}" style="vertical-align: middle;">{{ $itemNumber }}</td>
                                             <td>
                                                 @include('quotations.partials.rte', ['name' => "items[$i][description]", 'value' => $item->description, 'placeholder' => 'Item specifications & scope'])
                                                 @include('quotations.partials.line-photos', ['prefix' => "items[$i]", 'photos' => $item->photos ?? []])
+                                                <div class="subdesc-add-wrap" style="margin-top: 4px;">
+                                                    <button type="button" class="btn btn-ghost btn-xs subdesc-add-btn" onclick="addSubDescRow(this)" title="Add a sub-description line to this item" style="font-size: 11px; padding: 2px 8px; color: var(--muted);">
+                                                        + Sub-description
+                                                    </button>
+                                                </div>
                                             </td>
-                                            <td class="num">
+                                            <td class="num" rowspan="{{ $groupRowspan }}" style="vertical-align: middle;">
                                                 <input class="li-in li-qty" type="number" step="any" min="0" name="items[{{ $i }}][quantity]" value="{{ (float) $item->quantity }}" oninput="calcRow(this)" required>
                                             </td>
-                                            <td>
+                                            <td rowspan="{{ $groupRowspan }}" style="vertical-align: middle;">
                                                 <input class="li-in li-unit" list="unitList" name="items[{{ $i }}][unit]" value="{{ $item->unit }}" placeholder="unit">
                                             </td>
-                                            <td class="num">
+                                            <td class="num" rowspan="{{ $groupRowspan }}" style="vertical-align: middle;">
                                                 <input class="li-in li-price" type="number" step="0.01" min="0" name="items[{{ $i }}][unit_price]" value="{{ $item->unit_price }}" oninput="calcRow(this)" required>
                                             </td>
-                                            <td class="num li-total">
+                                            <td class="num li-total" rowspan="{{ $groupRowspan }}" style="vertical-align: middle;">
                                                 <b>AED {{ number_format($item->total_amount, 2) }}</b>
                                             </td>
-                                            <td class="ta-c">
-                                                <button type="button" class="act" onclick="removeRow(this)" title="Remove item">
-                                                    <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
-                                                </button>
+                                            <td class="ta-c" style="white-space: nowrap;">
+                                                <div class="row-actions" style="display: inline-flex; gap: 3px; align-items: center; justify-content: center;">
+                                                    <button type="button" class="act" style="width: 26px; height: 26px; border-radius: 6px;" onclick="moveRowUp(this)" title="Move up" aria-label="Move up">
+                                                        <svg class="ic xs" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-up"/></svg>
+                                                    </button>
+                                                    <button type="button" class="act" style="width: 26px; height: 26px; border-radius: 6px;" onclick="moveRowDown(this)" title="Move down" aria-label="Move down">
+                                                        <svg class="ic xs" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-down"/></svg>
+                                                    </button>
+                                                    <button type="button" class="act" style="width: 26px; height: 26px; border-radius: 6px;" onclick="removeRow(this)" title="Remove item" aria-label="Remove item">
+                                                        <svg class="ic xs" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -399,8 +472,13 @@
                                     <tr class="item-row">
                                         <td class="li-no">1</td>
                                         <td>
-                                            @include('quotations.partials.rte', ['name' => 'items[0][description]', 'value' => '', 'placeholder' => 'Supply and installation of works according to specifications...'])
+                                            @include('quotations.partials.rte', ['name' => 'items[0][description]', 'value' => '', 'placeholder' => ''])
                                             @include('quotations.partials.line-photos', ['prefix' => 'items[0]', 'photos' => []])
+                                            <div class="subdesc-add-wrap" style="margin-top: 4px;">
+                                                <button type="button" class="btn btn-ghost btn-xs subdesc-add-btn" onclick="addSubDescRow(this)" title="Add a sub-description line to this item" style="font-size: 11px; padding: 2px 8px; color: var(--muted);">
+                                                    + Sub-description
+                                                </button>
+                                            </div>
                                         </td>
                                         <td class="num">
                                             <input class="li-in li-qty" type="number" step="any" min="0" name="items[0][quantity]" value="1" oninput="calcRow(this)" required>
@@ -412,10 +490,18 @@
                                             <input class="li-in li-price" type="number" step="0.01" min="0" name="items[0][unit_price]" value="0" oninput="calcRow(this)" required>
                                         </td>
                                         <td class="num li-total"><b>AED 0.00</b></td>
-                                        <td class="ta-c">
-                                            <button type="button" class="act" onclick="removeRow(this)" title="Remove item">
-                                                <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
-                                            </button>
+                                        <td class="ta-c" style="white-space: nowrap;">
+                                            <div class="row-actions" style="display: inline-flex; gap: 3px; align-items: center; justify-content: center;">
+                                                <button type="button" class="act" style="width: 26px; height: 26px; border-radius: 6px;" onclick="moveRowUp(this)" title="Move up" aria-label="Move up">
+                                                    <svg class="ic xs" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-up"/></svg>
+                                                </button>
+                                                <button type="button" class="act" style="width: 26px; height: 26px; border-radius: 6px;" onclick="moveRowDown(this)" title="Move down" aria-label="Move down">
+                                                    <svg class="ic xs" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-down"/></svg>
+                                                </button>
+                                                <button type="button" class="act" style="width: 26px; height: 26px; border-radius: 6px;" onclick="removeRow(this)" title="Remove item" aria-label="Remove item">
+                                                    <svg class="ic xs" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 @endif
@@ -429,6 +515,12 @@
                     </template>
                     <template id="photoTemplate">
                         @include('quotations.partials.line-photos', ['prefix' => '__PREFIX__', 'photos' => []])
+                    </template>
+                    <template id="sectionTemplate">
+                        <table><tbody>@include('quotations.partials.section-row', ['prefix' => '__PREFIX__', 'value' => ''])</tbody></table>
+                    </template>
+                    <template id="subdescTemplate">
+                        <table><tbody>@include('quotations.partials.subdesc-row', ['prefix' => '__PREFIX__', 'value' => ''])</tbody></table>
                     </template>
 
                     {{-- enlarged line item photo (click a thumbnail); arrows step through that item's photos --}}
@@ -447,6 +539,8 @@
                     </div>
 
                     <datalist id="unitList">
+                        <option value="Lsm">
+                        <option value="LS">
                         <option value="lump sum">
                         <option value="m²">
                         <option value="m³">
@@ -455,6 +549,21 @@
                         <option value="nos">
                         <option value="set">
                         <option value="day">
+                    </datalist>
+
+                    <datalist id="sectionSuggestions">
+                        <option value="PRELIMINARIES">
+                        <option value="DEMOLITION & SITE PREPARATION">
+                        <option value="CIVIL & MASONRY WORKS">
+                        <option value="MEP WORKS (MECHANICAL, ELECTRICAL & PLUMBING)">
+                        <option value="HVAC & AIR CONDITIONING">
+                        <option value="CEILING & GYPSUM PARTITIONS">
+                        <option value="JOINERY & CARPENTRY">
+                        <option value="FLOORING & WALL FINISHES">
+                        <option value="GLASS & ALUMINIUM WORKS">
+                        <option value="PAINTING & DECORATIVE FINISHES">
+                        <option value="FIRE FIGHTING & FIRE ALARM">
+                        <option value="TESTING, COMMISSIONING & HANDOVER">
                     </datalist>
                 </section>
 
@@ -533,7 +642,7 @@
                         <div class="sum-row disc">
                             <span>Discount</span>
                             <span class="disc-ctl" style="display: flex; gap: 4px; align-items: center;">
-                                <input type="number" name="discount_value" id="discountValue" min="0" step="0.01" style="width: 80px;" value="{{ $quote ? $quote->discount_value : 0 }}" oninput="calcTotals()">
+                                <input type="number" name="discount_value" id="discountValue" min="0" step="0.01" style="width: 80px;" placeholder="0" value="{{ $quote && (float) $quote->discount_value > 0 ? (float) $quote->discount_value : '' }}" oninput="calcTotals()">
                                 <span class="select-wrap mini">
                                     <select name="discount_type" id="discountType" onchange="calcTotals()">
                                         <option value="amt" {{ (!$quote || $quote->discount_type == 'amt') ? 'selected' : '' }}>AED</option>
@@ -605,15 +714,39 @@
     </form>
 </div>
 
-{{-- Reject Reason Modal --}}
-@if($quote && $quote->status === 'pending')
-<div class="modal-wrap" id="rejectModal" style="display: none;">
-    <div class="modal modal-md" role="dialog" aria-modal="true">
+{{-- Submit for approval confirmation (new quotation or draft): totals are read from the live Summary --}}
+@if(!$quote || in_array($quote->status, ['draft', 'rejected']))
+<div class="modal-wrap" id="submitConfirmModal" style="display: none;" onclick="if (event.target === this) closeSubmitConfirm()">
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="submitConfirmTitle">
         <div class="modal-head">
             <div>
-                <h3>Revision Required</h3>
-                <p>Explain changes needed before quotation can be approved</p>
+                <h3 id="submitConfirmTitle">Submit for approval?</h3>
             </div>
+            <button class="icon-btn" type="button" onclick="closeSubmitConfirm()" aria-label="Close">
+                <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p class="confirm-text">
+                <b>{{ $quote ? $quote->quote_number : 'New quotation' }}</b> &middot; <span style="text-transform: capitalize;">{{ $lead->company_name }}</span><br>
+                Grand total <b id="submitConfirmTotal">AED 0.00</b> (incl. VAT <span id="submitConfirmVat">AED 0.00</span>).
+                The approver is notified and the quotation becomes read-only until it is approved or returned.
+            </p>
+        </div>
+        <div class="modal-foot">
+            <button class="btn btn-ghost" type="button" onclick="closeSubmitConfirm()">Cancel</button>
+            <button class="btn btn-primary" type="button" onclick="closeSubmitConfirm(); submitQuoteForm(true);">Submit for Approval</button>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- Reject Reason Modal --}}
+@if($quote && $quote->status === 'pending')
+<div class="modal-wrap" id="rejectModal" style="display: none;" onclick="if(event.target === this) closeRejectModal()">
+    <div class="modal modal-md reject-modal" role="dialog" aria-modal="true" aria-labelledby="rejectModalTitle">
+        <div class="modal-head">
+            <h3 id="rejectModalTitle">Return {{ $quote->quote_number }} for revision?</h3>
             <button class="icon-btn" type="button" onclick="closeRejectModal()" aria-label="Close">
                 <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
             </button>
@@ -621,18 +754,202 @@
         <form method="POST" action="{{ route('quotations.reject', $quote) }}">
             @csrf
             <div class="modal-body">
-                <label class="field">
-                    <span class="field-label">Reason for Rejection / Revision Notes *</span>
-                    <textarea name="reason" rows="4" required placeholder="e.g. Unit rates on line item 2 must be checked against current supplier discount..."></textarea>
+                <label class="field reject-reason">
+                    <span class="field-label">Reason</span>
+                    <textarea id="rejectReason" name="reason" rows="4" required placeholder="Add a note explaining what needs to be revised..."></textarea>
                 </label>
             </div>
             <div class="modal-foot">
                 <button class="btn btn-ghost" type="button" onclick="closeRejectModal()">Cancel</button>
-                <button class="btn btn-primary" type="submit" style="background: red;">Submit Revision Request</button>
+                <button class="btn btn-danger" type="submit">Request Revision</button>
             </div>
         </form>
     </div>
 </div>
+@endif
+
+{{-- Approve Quotation Confirmation Modal --}}
+@if($quote && $quote->status === 'pending')
+<div class="modal-wrap" id="approveModal" style="display: none;" onclick="if(event.target === this) closeApproveModal()">
+    <div class="modal modal-sm approve-modal" role="dialog" aria-modal="true" aria-labelledby="approveModalTitle">
+        <div class="modal-head">
+            <h3 id="approveModalTitle">Approve {{ $quote->quote_number }}?</h3>
+            <button class="icon-btn" type="button" onclick="closeApproveModal()" aria-label="Close">
+                <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p class="confirm-text">
+                Grand total <b>AED {{ number_format($quote->grand_total, 2) }}</b> for {{ $lead->company_name }}.
+                Once approved the quotation can be sent to the customer.
+            </p>
+        </div>
+        <form action="{{ route('quotations.approve', $quote) }}" method="POST">
+            @csrf
+            <div class="modal-foot">
+                <button class="btn btn-ghost" type="button" onclick="closeApproveModal()">Cancel</button>
+                <button class="btn btn-primary" type="submit">Approve</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
+
+{{-- Mark Quotation as Awarded Confirmation Modal --}}
+@if($quote && $quote->status === 'sent')
+<div class="modal-wrap" id="awardModal" style="display: none;" onclick="if(event.target === this) closeAwardModal()">
+    <div class="modal modal-sm award-modal" role="dialog" aria-modal="true" aria-labelledby="awardModalTitle">
+        <div class="modal-head">
+            <h3 id="awardModalTitle">Mark quotation as awarded?</h3>
+            <button class="icon-btn" type="button" onclick="closeAwardModal()" aria-label="Close">
+                <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p class="confirm-text">
+                Are you sure you want to mark Quote <b>#{{ $quote->quote_number }}</b>
+                (AED {{ number_format($quote->grand_total, 2) }}) as Awarded?
+                Project creation becomes available.
+            </p>
+        </div>
+        <form action="{{ route('quotations.award', $quote) }}" method="POST">
+            @csrf
+            <div class="modal-foot">
+                <button class="btn btn-ghost" type="button" onclick="closeAwardModal()">Cancel</button>
+                <button class="btn btn-primary" type="submit">Mark as Awarded</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
+
+{{-- Create Project from Awarded Quotation --}}
+@if($quote && $quote->status === 'awarded' && !$quote->project)
+    @can('projects.create')
+    <div class="modal-wrap" id="createProjectModal" style="display: none;" onclick="if(event.target === this) closeCreateProjectModal()">
+        <div class="modal modal-xl create-project-modal" role="dialog" aria-modal="true" aria-labelledby="createProjectModalTitle">
+            <div class="modal-head">
+                <div>
+                    <h3 id="createProjectModalTitle">Create Project</h3>
+                    <p>Details are taken from the awarded quotation. Add the PO now or later.</p>
+                </div>
+                <button class="icon-btn" type="button" onclick="closeCreateProjectModal()" aria-label="Close">
+                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+                </button>
+            </div>
+
+            <form action="{{ route('projects.store') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <input type="hidden" name="quotation_id" value="{{ $quote->id }}">
+                <input type="hidden" name="lead_id" value="{{ $lead->id }}">
+                <input type="hidden" name="branch_id" value="{{ $quote->branch_id }}">
+                <input type="hidden" name="client_name" value="{{ $lead->company_name }}">
+                <input type="hidden" name="contract_value" value="{{ $quote->subtotal }}">
+                <input type="hidden" name="start_date" value="{{ now()->toDateString() }}">
+
+                <div class="modal-body create-project-body">
+                    @if($errors->hasAny(['name', 'branch_id', 'lead_id', 'quotation_id', 'engineer_id', 'contract_value', 'client_po_number', 'client_po_date', 'client_po_amount', 'po_file', 'project_documents', 'description']))
+                        <div class="create-project-errors" role="alert">
+                            @foreach(['name', 'branch_id', 'lead_id', 'quotation_id', 'engineer_id', 'contract_value', 'client_po_number', 'client_po_date', 'client_po_amount', 'po_file', 'project_documents', 'description'] as $projectField)
+                                @foreach($errors->get($projectField) as $error)
+                                    <div>{{ $error }}</div>
+                                @endforeach
+                                @foreach($errors->get($projectField.'.*') as $error)
+                                    <div>{{ $error }}</div>
+                                @endforeach
+                            @endforeach
+                        </div>
+                    @endif
+
+                    <label class="field create-project-quote">
+                        <span class="field-label">Awarded Quotation</span>
+                        <span class="create-project-quote-number">{{ $quote->quote_number }} · {{ $lead->company_name }} — AED {{ number_format($quote->subtotal, 2) }}</span>
+                    </label>
+
+                    <div class="create-project-summary" aria-label="Quotation details">
+                        <span>Customer</span><strong>{{ $lead->company_name }}</strong>
+                        <span>Quotation</span><strong>{{ $quote->quote_number }}</strong>
+                        <span>Branch</span><strong>{{ $quote->branch->name }}</strong>
+                        <span>Engineer</span><strong>{{ $lead->assignedEngineer?->name ?? 'Not assigned' }}</strong>
+                        <span>Subject</span><strong>{{ $lead->subject }}</strong>
+                        <span class="create-project-summary-total">Quotation amount (excl. VAT)</span>
+                        <strong class="create-project-summary-total">AED {{ number_format($quote->subtotal, 2) }}</strong>
+                    </div>
+
+                    <label class="field">
+                        <span class="field-label">Project Name</span>
+                        <input name="name" type="text" required maxlength="200" value="{{ old('name', $lead->subject) }}">
+                    </label>
+
+                    <div class="create-project-grid">
+                        <label class="field">
+                            <span class="field-label">RFQ / PR Number</span>
+                            <input type="text" value="{{ $lead->rfq_number ?: 'Not provided' }}" readonly>
+                            <small class="create-project-hint">Taken from the lead.</small>
+                        </label>
+                        <label class="field">
+                            <span class="field-label">Assigned Engineer</span>
+                            <select name="engineer_id">
+                                <option value="">Select engineer</option>
+                                @foreach($branchEngineers as $engineer)
+                                    <option value="{{ $engineer->id }}" @selected(old('engineer_id', $lead->assigned_engineer_id) == $engineer->id)>{{ $engineer->name }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                    </div>
+
+                    <label class="field create-project-work-authorization">
+                        <span class="field-label">Work Authorization</span>
+                        <select id="projectAuthorizationStatus" aria-label="Work Authorization">
+                            <option value="po_received">Purchase Order received</option>
+                            <option value="email_approved">Approved by email — PO to follow</option>
+                            <option value="po_pending" selected>Not received yet (PO Pending)</option>
+                        </select>
+                    </label>
+
+                    <div class="create-project-grid">
+                        <label class="field">
+                            <span class="field-label">PO Number</span>
+                            <input id="projectPoNumber" name="client_po_number" type="text" maxlength="100" value="{{ old('client_po_number') }}" placeholder="Optional — e.g. PO-2026-4471">
+                        </label>
+                        <label class="field">
+                            <span class="field-label">PO Date</span>
+                            <input id="projectPoDate" name="client_po_date" type="date" value="{{ old('client_po_date', now()->toDateString()) }}">
+                        </label>
+                        <label class="field">
+                            <span class="field-label">PO Value (AED)</span>
+                            <input name="client_po_amount" type="number" step="0.01" min="0" value="{{ old('client_po_amount', $quote->subtotal) }}">
+                        </label>
+                        <label class="field">
+                            <span class="field-label">PO Document</span>
+                            <input name="po_file" type="file" accept=".pdf,.jpg,.jpeg,.png">
+                            <small class="create-project-hint">PDF, JPG, JPEG, or PNG</small>
+                        </label>
+                    </div>
+
+                    <label class="field">
+                        <span class="field-label">Project Documents</span>
+                        <input name="project_documents[]" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.dwg,.xls,.xlsx,.doc,.docx">
+                        <small class="create-project-hint">PDF, images, drawings, spreadsheets, or documents. Multiple files allowed.</small>
+                    </label>
+
+                    <label class="field">
+                        <span class="field-label">Project Description</span>
+                        <textarea name="description" rows="3" maxlength="2000" placeholder="Scope, site address, key milestones...">{{ old('description', $quote->technical_description) }}</textarea>
+                    </label>
+                </div>
+
+                <div class="modal-foot">
+                    <button class="btn btn-ghost" type="button" onclick="closeCreateProjectModal()">Cancel</button>
+                    <button class="btn btn-primary" type="submit">
+                        <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-briefcase"/></svg>
+                        Create Project
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    @endcan
 @endif
 
 {{-- Send Quotation Modal --}}
@@ -731,7 +1048,7 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
 @if($quote && in_array($quote->status, ['approved', 'sent']))
 {{-- Reopen / Edit Quotation Modal matching prototype --}}
 <div class="modal-wrap" id="reopenModal" style="display: none;" onclick="if(event.target === this) closeReopenModal()">
-    <div class="modal modal-md" role="dialog" aria-modal="true" aria-labelledby="reopenModalTitle" style="max-width: 540px;">
+    <div class="modal modal-md reopen-modal" role="dialog" aria-modal="true" aria-labelledby="reopenModalTitle">
         <div class="modal-head">
             <div>
                 <h3 id="reopenModalTitle">Edit {{ $quote->quote_number }}?</h3>
@@ -747,34 +1064,54 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
                 <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
             </button>
         </div>
-        <form id="reopenForm" method="POST" action="{{ route('quotations.reopen', $quote) }}">
+        <form id="reopenForm" method="POST" action="{{ route('quotations.reopen', $quote) }}" enctype="multipart/form-data">
             @csrf
-            <div class="modal-body" style="padding: 20px;">
-                <label class="field" style="margin-bottom: 14px;">
-                    <span class="field-label" style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block;">
+            <div class="modal-body reopen-modal-body">
+                <div class="reopen-modal-fields">
+                    <label class="field reopen-field">
+                        <span class="field-label">
                         Reason for edit &amp; changes required <span style="color: var(--primary);">*</span>
-                    </span>
-                    <textarea name="reason" rows="4" required maxlength="500" placeholder="Describe the changes required in scope, quantities, or pricing..."></textarea>
-                </label>
+                        </span>
+                        <textarea name="reason" rows="4" required maxlength="500" placeholder="Note"></textarea>
+                    </label>
 
-                <label class="field" style="margin: 0;">
-                    <span class="field-label" style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block;">Assign to</span>
-                    <span class="select-wrap">
-                        <select name="engineer_id">
-                            <option value="">Myself ({{ auth()->user()->name }}) &mdash; edit directly</option>
-                            @if(isset($branchEngineers))
-                                @foreach($branchEngineers as $eng)
-                                    <option value="{{ $eng->id }}" {{ $eng->id === $lead->assigned_engineer_id ? 'selected' : '' }}>
-                                        {{ $eng->name }} {{ $eng->id === $lead->assigned_engineer_id ? '(current engineer)' : '' }}
-                                    </option>
-                                @endforeach
-                            @endif
-                        </select>
-                    </span>
-                    <span style="font-size: 11.5px; color: var(--muted); margin-top: 4px; display: block;">
-                        Edit it yourself, or assign to an engineer from {{ $lead->branch->name }}
-                    </span>
-                </label>
+                    <div class="field reopen-field">
+                        <span class="field-label">Revised scope documents</span>
+                        <label id="revisedScopeDropZone" class="file-drop" for="revisedScopeDocuments">
+                            <span class="fd-icon">
+                                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-upload"/></svg>
+                            </span>
+                            <span class="fd-text">
+                                <span><strong>Click to upload</strong> or drag &amp; drop</span>
+                                <small>PDF, JPG, JPEG, PNG, DWG, XLSX, DOCX &middot; multiple files allowed</small>
+                            </span>
+                            <input id="revisedScopeDocuments" name="revised_scope_documents[]" type="file" multiple data-plain accept=".pdf,.jpg,.jpeg,.png,.dwg,.xlsx,.docx" aria-describedby="revisedScopeFileList">
+                        </label>
+                        <ul class="fd-list revised-scope-file-list" id="revisedScopeFileList" aria-live="polite"></ul>
+                        <button class="revised-scope-clear" id="clearRevisedScopeDocuments" type="button" hidden>
+                            <svg class="ic xs" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+                            Clear
+                        </button>
+                        <span class="reopen-field-hint">Shared with the assigned user; file names are stored with the quotation.</span>
+                    </div>
+
+                    <label class="field reopen-field">
+                        <span class="field-label">Assign to <span style="color: var(--primary);">*</span></span>
+                        <span class="select-wrap">
+                            <select name="engineer_id">
+                                <option value="">Myself ({{ auth()->user()->name }}) &mdash; edit directly</option>
+                                @if(isset($branchEngineers))
+                                    @foreach($branchEngineers as $eng)
+                                        <option value="{{ $eng->id }}" {{ $eng->id === $lead->assigned_engineer_id ? 'selected' : '' }}>
+                                            {{ $eng->name }} {{ $eng->id === $lead->assigned_engineer_id ? '(current engineer)' : '' }}
+                                        </option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        </span>
+                        <span class="reopen-field-hint">Edit it yourself, or pick an engineer from {{ $lead->branch->name }} (e.g. if the current one is on leave).</span>
+                    </label>
+                </div>
             </div>
             <div class="modal-foot">
                 <button class="btn btn-ghost" type="button" onclick="closeReopenModal()">Cancel</button>
@@ -832,7 +1169,7 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
 
 {{-- Interactive Quotation Preview Modal matching prototype --}}
 <div class="modal-wrap" id="quotePreviewModal" style="display:none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.5); place-items: center; padding: 20px; overflow-y: auto;">
-    <div class="modal modal-lg" style="background: #fff; border-radius: 12px; width: 100%; max-width: 900px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+    <div class="modal modal-lg" style="background: #fff; border-radius: 12px; width: min(1000px, calc(100vw - 40px)); max-width: none; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
         <div class="modal-head" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #e2e8f0;">
             <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Preview &bull; {{ $quote ? $quote->quote_number : 'QT-' . date('Y') . '-DRAFT' }}</h3>
             <button class="icon-btn" type="button" onclick="closeQuotePreviewModal()" aria-label="Close" style="background: none; border: none; cursor: pointer; padding: 4px;">
@@ -841,8 +1178,8 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
         </div>
 
         <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1; background: #f8fafc;">
-            {{-- Segmented Controls --}}
-            <div style="display: flex; justify-content: flex-start; margin-bottom: 16px;">
+            {{-- Segmented Controls: sticky, so the format tabs stay at the top while the document scrolls --}}
+            <div style="display: flex; justify-content: flex-start; position: sticky; top: -20px; z-index: 2; margin: -20px -20px 4px; padding: 20px 20px 12px; background: #f8fafc;">
                 <div class="seg preview-seg" style="display: inline-flex; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #fff;">
                     <label style="cursor: pointer; position: relative;">
                         <input type="radio" name="previewMode" value="tax" checked onchange="switchPreviewMode('tax')" style="position: absolute; opacity: 0;">
@@ -904,24 +1241,280 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
         form.submit();
     }
 
+    // next free items[N] field index (item and section rows share the items[] list)
+    function nextItemIndex() {
+        var max = -1;
+        document.querySelectorAll('#itemsBody [name^="items["]').forEach(function (el) {
+            var m = el.name.match(/^items\[(\d+)\]/);
+            if (m) max = Math.max(max, +m[1]);
+        });
+        return max + 1;
+    }
+
+    function groupRowsFor(itemRow) {
+        var rows = [itemRow];
+        var next = itemRow.nextElementSibling;
+        while (next && next.classList.contains('subdesc-row')) {
+            rows.push(next);
+            next = next.nextElementSibling;
+        }
+        return rows;
+    }
+
+    function syncGroupRowspans() {
+        document.querySelectorAll('#itemsBody > tr.item-row').forEach(function (row) {
+            var rowspan = groupRowsFor(row).length;
+            [row.querySelector('.li-no'), row.querySelector('.li-qty'), row.querySelector('.li-unit'),
+                row.querySelector('.li-price'), row.querySelector('.li-total')].forEach(function (cellContent) {
+                if (cellContent) {
+                    var cell = cellContent.closest('td');
+                    cell.rowSpan = rowspan;
+                    cell.style.verticalAlign = 'middle';
+                }
+            });
+        });
+    }
+
+    // Re-index all item fields in DOM order and update row numbers (1, 2, 3...)
+    function reindexAndRenumber() {
+        var rows = document.querySelectorAll('#itemsBody > tr');
+        var itemNo = 0;
+        rows.forEach(function (row, idx) {
+            row.querySelectorAll('[name^="items["]').forEach(function (el) {
+                el.name = el.name.replace(/^items\[\d+\]/, 'items[' + idx + ']');
+            });
+            var photoStrip = row.querySelector('.li-photo');
+            if (photoStrip) {
+                photoStrip.dataset.prefix = 'items[' + idx + ']';
+                photoStrip.querySelectorAll('input[type="hidden"]').forEach(function (inp) {
+                    inp.name = 'items[' + idx + '][photos][]';
+                });
+            }
+            // Only item-rows get a visible number; section and subdesc rows do not
+            if (row.classList.contains('item-row')) {
+                itemNo++;
+                var noEl = row.querySelector('.li-no');
+                if (noEl) noEl.textContent = itemNo;
+            }
+        });
+        syncGroupRowspans();
+    }
+
+    function renumberItems() {
+        reindexAndRenumber();
+    }
+
+    function createSectionRowElement(val) {
+        var holder = document.createElement('tbody');
+        holder.innerHTML = document.getElementById('sectionTemplate').innerHTML
+            .match(/<tr[\s\S]*<\/tr>/)[0]
+            .replace(/__PREFIX__/g, 'items[' + nextItemIndex() + ']');
+        var tr = holder.firstElementChild;
+        if (val) {
+            var inp = tr.querySelector('.li-section');
+            if (inp) inp.value = val;
+        }
+        return tr;
+    }
+
+    function addSectionRow(val) {
+        var tbody = document.getElementById('itemsBody');
+        var tr = createSectionRowElement(val);
+        var firstSection = tbody.querySelector('.section-row');
+        if (!firstSection && tbody.firstElementChild) {
+            // First section heading: insert at the top above the first item
+            tbody.insertBefore(tr, tbody.firstElementChild);
+        } else {
+            // Subsequent sections: append at the bottom
+            tbody.appendChild(tr);
+        }
+        reindexAndRenumber();
+        fitItemsToThreeRows();
+        var wrap = tr.closest('.items-wrap');
+        if (wrap) {
+            if (!firstSection && tbody.firstElementChild === tr) {
+                wrap.scrollTop = 0;
+            } else {
+                wrap.scrollTop = wrap.scrollHeight;
+            }
+        }
+        var inp = tr.querySelector('.li-section');
+        if (inp) {
+            inp.focus();
+            if (val) inp.select();
+        }
+        return tr;
+    }
+
+    function addSectionAbove(btn, val) {
+        var targetRow = btn.closest('tr');
+        var tbody = document.getElementById('itemsBody');
+        var tr = createSectionRowElement(val || 'PRELIMINARIES');
+        tbody.insertBefore(tr, targetRow);
+        reindexAndRenumber();
+        fitItemsToThreeRows();
+        var inp = tr.querySelector('.li-section');
+        if (inp) {
+            inp.focus();
+            inp.select();
+        }
+        return tr;
+    }
+
+    // Sub-description row: inserts a description-only row immediately after the parent item-row (or after the
+    // last subdesc already attached to it), sharing the parent's qty / unit / price / total.
+    function addSubDescRow(btn) {
+        var tbody = document.getElementById('itemsBody');
+        var parentRow = btn.closest('tr.item-row');
+        // find the insertion point: after the last consecutive subdesc-row following the parent
+        var insertBefore = parentRow ? parentRow.nextElementSibling : null;
+        while (insertBefore && insertBefore.classList.contains('subdesc-row')) {
+            insertBefore = insertBefore.nextElementSibling;
+        }
+
+        var index = nextItemIndex();
+        var tplHtml = document.getElementById('subdescTemplate').innerHTML
+            .match(/<tr[\s\S]*<\/tr>/)[0]
+            .replace(/__PREFIX__/g, 'items[' + index + ']');
+
+        var holder = document.createElement('tbody');
+        holder.innerHTML = tplHtml;
+        var tr = holder.firstElementChild;
+
+        if (insertBefore) {
+            tbody.insertBefore(tr, insertBefore);
+        } else {
+            tbody.appendChild(tr);
+        }
+        reindexAndRenumber();
+        rteInit(tr);
+        fitItemsToThreeRows();
+        var area = tr.querySelector('.rte-area');
+        if (area) area.focus();
+        return tr;
+    }
+
+    function removeSubDescRow(btn) {
+        btn.closest('.subdesc-row').remove();
+        reindexAndRenumber();
+        fitItemsToThreeRows();
+    }
+
+    function itemBlocks() {
+        var blocks = [];
+        var row = document.getElementById('itemsBody').firstElementChild;
+        while (row) {
+            if (row.classList.contains('item-row')) {
+                var group = groupRowsFor(row);
+                blocks.push(group);
+                row = group[group.length - 1].nextElementSibling;
+            } else {
+                blocks.push([row]);
+                row = row.nextElementSibling;
+            }
+        }
+        return blocks;
+    }
+
+    function moveGroupRow(row, direction) {
+        if (row.classList.contains('subdesc-row')) {
+            var sibling = direction < 0 ? row.previousElementSibling : row.nextElementSibling;
+            if (!sibling || !sibling.classList.contains('subdesc-row')) return;
+            if (direction < 0) {
+                row.parentNode.insertBefore(row, sibling);
+            } else {
+                row.parentNode.insertBefore(sibling, row);
+            }
+            return;
+        }
+
+        var blocks = itemBlocks();
+        var blockIndex = blocks.findIndex(function (block) { return block[0] === row; });
+        var nextIndex = blockIndex + direction;
+        if (blockIndex < 0 || nextIndex < 0 || nextIndex >= blocks.length) return;
+        var moving = blocks.splice(blockIndex, 1)[0];
+        blocks.splice(nextIndex, 0, moving);
+        var tbody = document.getElementById('itemsBody');
+        blocks.forEach(function (block) {
+            block.forEach(function (blockRow) { tbody.appendChild(blockRow); });
+        });
+    }
+
+    function moveRowUp(btn) {
+        var row = btn.closest('tr');
+        moveGroupRow(row, -1);
+        reindexAndRenumber();
+        calcTotals();
+    }
+
+    function moveRowDown(btn) {
+        var row = btn.closest('tr');
+        moveGroupRow(row, 1);
+        reindexAndRenumber();
+        calcTotals();
+    }
+
+    function removeSectionRow(btn) {
+        btn.closest('.section-row').remove();
+        reindexAndRenumber();
+    }
+
+    function setSectionMenu(open) {
+        var menu = document.getElementById('sectionMenu');
+        if (!menu) return;
+        menu.hidden = !open;
+        var btn = document.getElementById('sectionMenuBtn');
+        if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    function toggleSectionMenu(event) {
+        event.stopPropagation();
+        var menu = document.getElementById('sectionMenu');
+        if (menu) setSectionMenu(menu.hidden);
+    }
+
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('#sectionMenu') && !e.target.closest('#sectionMenuBtn')) {
+            setSectionMenu(false);
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', renumberItems);
+
     function addLineItemRow() {
         var tbody = document.getElementById('itemsBody');
-        var index = tbody.querySelectorAll('.item-row').length;
+        var index = nextItemIndex();
 
         var tr = document.createElement('tr');
         tr.className = 'item-row';
         tr.innerHTML = `
-            <td class="li-no">${index + 1}</td>
-            <td>${document.getElementById('rteTemplate').innerHTML.replace('__NAME__', 'items[' + index + '][description]')}${document.getElementById('photoTemplate').innerHTML.replace('__PREFIX__', 'items[' + index + ']')}</td>
+            <td class="li-no">${tbody.querySelectorAll('.item-row').length + 1}</td>
+            <td>${document.getElementById('rteTemplate').innerHTML.replace('__NAME__', 'items[' + index + '][description]')}${document.getElementById('photoTemplate').innerHTML.replace('__PREFIX__', 'items[' + index + ']')}<div class="subdesc-add-wrap" style="margin-top:4px;"><button type="button" class="btn btn-ghost btn-xs subdesc-add-btn" onclick="addSubDescRow(this)" style="font-size:11px;padding:2px 8px;color:var(--muted);">+ Sub-description</button></div></td>
             <td class="num"><input class="li-in li-qty" type="number" step="any" min="0" name="items[${index}][quantity]" value="1" oninput="calcRow(this)" required></td>
             <td><input class="li-in li-unit" list="unitList" name="items[${index}][unit]" value="nos" placeholder="unit"></td>
             <td class="num"><input class="li-in li-price" type="number" step="0.01" min="0" name="items[${index}][unit_price]" value="0" oninput="calcRow(this)" required></td>
             <td class="num li-total"><b>AED 0.00</b></td>
-            <td class="ta-c"><button type="button" class="act" onclick="removeRow(this)" title="Remove item"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button></td>
+            <td class="ta-c" style="white-space: nowrap;">
+                <div class="row-actions" style="display: inline-flex; gap: 3px; align-items: center; justify-content: center;">
+                    <button type="button" class="act" style="width: 26px; height: 26px; border-radius: 6px;" onclick="moveRowUp(this)" title="Move up" aria-label="Move up">
+                        <svg class="ic xs" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-up"/></svg>
+                    </button>
+                    <button type="button" class="act" style="width: 26px; height: 26px; border-radius: 6px;" onclick="moveRowDown(this)" title="Move down" aria-label="Move down">
+                        <svg class="ic xs" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-down"/></svg>
+                    </button>
+                    <button type="button" class="act" style="width: 26px; height: 26px; border-radius: 6px;" onclick="removeRow(this)" title="Remove item" aria-label="Remove item">
+                        <svg class="ic xs" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+                    </button>
+                </div>
+            </td>
         `;
         tbody.appendChild(tr);
+        reindexAndRenumber();
         rteInit(tr);
         calcTotals();
+        fitItemsToThreeRows();
+        var wrap = tr.closest('.items-wrap');
+        if (wrap) wrap.scrollTop = wrap.scrollHeight;
     }
 
     /* ---------- Line item description editor (quotations.partials.rte) ---------- */
@@ -998,6 +1591,48 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
         rteExec(btn.closest('.rte'), btn.dataset.cmd, e.target.value);
     });
     document.addEventListener('DOMContentLoaded', function () { rteInit(document.getElementById('itemsBody')); });
+
+    /* ---------- Edit popup mode (?embed=1, opened from the Quotations list) ---------- */
+    @if(request()->boolean('embed'))
+    document.addEventListener('DOMContentLoaded', function () {
+        // every action posts back here with embed=1, so the result opens in the popup again
+        document.querySelectorAll('form').forEach(function (form) {
+            if ((form.method || '').toLowerCase() !== 'post') return;
+            var flag = document.createElement('input');
+            flag.type = 'hidden';
+            flag.name = 'embed';
+            flag.value = '1';
+            form.appendChild(flag);
+        });
+        // anything that leaves the quotation (project pages, the lists) opens in the full window, not the popup
+        document.querySelectorAll('a[href]').forEach(function (a) {
+            if (a.target || a.hasAttribute('download') || a.getAttribute('href').charAt(0) === '#') return;
+            a.target = '_top';
+        });
+        document.querySelectorAll('form[action*="/projects/"]').forEach(function (form) { form.target = '_top'; });
+    });
+    @endif
+
+    /* ---------- Line items: 3 rows visible, the rest scroll (header stays) ---------- */
+    // rows grow with the description / photos, so the box height follows the first three rows' real size
+    function fitItemsToThreeRows() {
+        var table = document.getElementById('itemsTable');
+        if (!table) return;
+        var wrap = table.closest('.items-wrap');
+        var rows = Array.prototype.slice.call(table.tBodies[0].rows);
+        if (rows.length <= 3) { wrap.style.maxHeight = ''; return; }
+        var height = table.tHead.offsetHeight + rows.slice(0, 3).reduce(function (sum, r) { return sum + r.offsetHeight; }, 0);
+        var chrome = wrap.offsetHeight - wrap.clientHeight; // borders + horizontal scrollbar
+        wrap.style.maxHeight = (height + chrome) + 'px';
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        var body = document.getElementById('itemsBody');
+        if (!body) return;
+        fitItemsToThreeRows();
+        new MutationObserver(fitItemsToThreeRows).observe(body, { childList: true });
+        if (window.ResizeObserver) new ResizeObserver(fitItemsToThreeRows).observe(body);
+        window.addEventListener('resize', fitItemsToThreeRows);
+    });
 
     /* ---------- Add from catalog ---------- */
     function setCatalogMenu(open) {
@@ -1198,11 +1833,8 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
         var tr = btn.closest('.item-row');
         var tbody = document.getElementById('itemsBody');
         if (tbody.querySelectorAll('.item-row').length > 1) {
-            tr.remove();
-            // re-index
-            tbody.querySelectorAll('.item-row').forEach(function(row, idx) {
-                row.querySelector('.li-no').textContent = idx + 1;
-            });
+            groupRowsFor(tr).forEach(function (row) { row.remove(); });
+            reindexAndRenumber();
             calcTotals();
         } else {
             alert('Quotation must contain at least one line item.');
@@ -1275,12 +1907,87 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
     }, 30000);
     @endif
 
+    // "Submit for Approval" asks first: checks the form, shows the live grand total and VAT, then saves + submits
+    function openSubmitConfirm() {
+        var form = document.getElementById('quoteMainForm');
+        if (form && form.reportValidity && !form.reportValidity()) return;
+        calcTotals();
+        document.getElementById('submitConfirmTotal').textContent = document.getElementById('sumGrandTotal').textContent;
+        document.getElementById('submitConfirmVat').textContent = document.getElementById('sumVat').textContent;
+        document.getElementById('submitConfirmModal').style.display = 'grid';
+    }
+    function closeSubmitConfirm() {
+        document.getElementById('submitConfirmModal').style.display = 'none';
+    }
+    document.addEventListener('keydown', function (e) {
+        var m = document.getElementById('submitConfirmModal');
+        if (e.key === 'Escape' && m && m.style.display !== 'none') closeSubmitConfirm();
+    });
+
     function openRejectModal() {
-        document.getElementById('rejectModal').style.display = 'grid';
+        var modal = document.getElementById('rejectModal');
+        if (modal) {
+            modal.style.display = 'grid';
+            modal.classList.add('open');
+            var reason = document.getElementById('rejectReason');
+            if (reason) reason.focus();
+        }
     }
     function closeRejectModal() {
-        document.getElementById('rejectModal').style.display = 'none';
+        var modal = document.getElementById('rejectModal');
+        if (modal) {
+            modal.classList.remove('open');
+            modal.style.display = 'none';
+        }
     }
+
+    function openApproveModal() {
+        var modal = document.getElementById('approveModal');
+        if (modal) {
+            modal.style.display = 'grid';
+            modal.classList.add('open');
+        }
+    }
+    function closeApproveModal() {
+        var modal = document.getElementById('approveModal');
+        if (modal) {
+            modal.classList.remove('open');
+            modal.style.display = 'none';
+        }
+    }
+
+    function openAwardModal() {
+        var modal = document.getElementById('awardModal');
+        if (modal) {
+            modal.style.display = 'grid';
+            modal.classList.add('open');
+        }
+    }
+    function closeAwardModal() {
+        var modal = document.getElementById('awardModal');
+        if (modal) {
+            modal.classList.remove('open');
+            modal.style.display = 'none';
+        }
+    }
+
+    function openCreateProjectModal() {
+        var modal = document.getElementById('createProjectModal');
+        if (modal) {
+            modal.style.display = 'grid';
+            modal.classList.add('open');
+        }
+    }
+    function closeCreateProjectModal() {
+        var modal = document.getElementById('createProjectModal');
+        if (modal) {
+            modal.classList.remove('open');
+            modal.style.display = 'none';
+        }
+    }
+    @if($errors->hasAny(['name', 'branch_id', 'lead_id', 'quotation_id', 'engineer_id', 'contract_value', 'client_po_number', 'client_po_date', 'client_po_amount', 'po_file', 'project_documents', 'description']))
+    openCreateProjectModal();
+    @endif
 
     function openSendModal() {
         var modal = document.getElementById('sendModal');
@@ -1324,6 +2031,51 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
         openReopenModal();
     }
 
+    var revisedScopeInput = document.getElementById('revisedScopeDocuments');
+    var revisedScopeDropZone = document.getElementById('revisedScopeDropZone');
+    var revisedScopeFileList = document.getElementById('revisedScopeFileList');
+    var clearRevisedScopeDocuments = document.getElementById('clearRevisedScopeDocuments');
+    function renderRevisedScopeFiles() {
+        if (!revisedScopeInput || !revisedScopeFileList || !clearRevisedScopeDocuments) return;
+        revisedScopeFileList.replaceChildren();
+        Array.prototype.forEach.call(revisedScopeInput.files, function (file) {
+            var row = document.createElement('li');
+            row.innerHTML = '<svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-text"/></svg><span></span><small></small>';
+            row.querySelector('span').textContent = file.name;
+            row.querySelector('small').textContent = attSize(file.size);
+            revisedScopeFileList.appendChild(row);
+        });
+        clearRevisedScopeDocuments.hidden = revisedScopeInput.files.length === 0;
+    }
+    if (revisedScopeInput) {
+        revisedScopeInput.addEventListener('change', function () {
+            renderRevisedScopeFiles();
+        });
+    }
+    if (clearRevisedScopeDocuments && revisedScopeInput) {
+        clearRevisedScopeDocuments.addEventListener('click', function () {
+            revisedScopeInput.value = '';
+            renderRevisedScopeFiles();
+        });
+    }
+    if (revisedScopeDropZone && revisedScopeInput) {
+        ['dragenter', 'dragover'].forEach(function (eventName) {
+            revisedScopeDropZone.addEventListener(eventName, function (event) {
+                event.preventDefault();
+                revisedScopeDropZone.classList.add('drag');
+            });
+        });
+        ['dragleave', 'drop'].forEach(function (eventName) {
+            revisedScopeDropZone.addEventListener(eventName, function (event) {
+                event.preventDefault();
+                revisedScopeDropZone.classList.remove('drag');
+                if (eventName === 'drop' && event.dataTransfer) {
+                    revisedScopeInput.files = event.dataTransfer.files;
+                    renderRevisedScopeFiles();
+                }
+            });
+        });
+    }
 
     /* ---------- Interactive Quotation Preview Modal ---------- */
     var currentPreviewMode = 'tax';
@@ -1403,28 +2155,50 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
         var subtotal = 0;
 
         var itemRows = document.querySelectorAll('#itemsBody .item-row');
-        itemRows.forEach(function(row, idx) {
+        var itemNo = 0;
+        // A priced row and its following sub-descriptions form one item group.
+        document.querySelectorAll('#itemsBody > tr').forEach(function(row) {
+            if (row.classList.contains('section-row')) {
+                var title = row.querySelector('.li-section').value.trim();
+                if (title) rowsHtml += `<tr class="sect"><td colspan="${priced ? 6 : 4}">${rteEscape(title)}</td></tr>`;
+                return;
+            }
+            if (!row.classList.contains('item-row')) return;
+            var idx = itemNo++;
             var desc = row.querySelector('.li-desc') ? row.querySelector('.li-desc').value.trim() : '';
             var qty = parseFloat(row.querySelector('.li-qty') ? row.querySelector('.li-qty').value : 0) || 0;
             var unit = row.querySelector('.li-unit') ? row.querySelector('.li-unit').value : 'nos';
             var price = parseFloat(row.querySelector('.li-price') ? row.querySelector('.li-price').value : 0) || 0;
             var lineTot = qty * price;
             subtotal += lineTot;
+            var groupRows = groupRowsFor(row);
+            var rowspan = groupRows.length;
+            // the row's photos (thumbnails already uploaded) show under the description, as in the document
+            var photos = Array.prototype.map.call(row.querySelectorAll('.li-photo img[data-photo-view]'), function (img) {
+                return '<img src="' + img.src + '" alt="Item ' + (idx + 1) + ' image">';
+            }).join('');
+            var priceCells = priced
+                ? `<td class="c" rowspan="${rowspan}" style="vertical-align: middle;">${price ? numFmt(price) : '0.00'}</td><td class="r" rowspan="${rowspan}" style="vertical-align: middle;">${numFmt(lineTot)}</td>`
+                : '';
 
             rowsHtml += `<tr>
-                <td class="c">${idx + 1}</td>
-                <td class="d">${desc || 'Item ' + (idx + 1)}</td>
-                <td class="c">${qty}</td>
-                <td class="c">${unit}</td>
-                ${priced ? `<td class="c">${price ? numFmt(price) : '0.00'}</td><td class="r">${numFmt(lineTot)}</td>` : ''}
+                <td class="c" rowspan="${rowspan}" style="vertical-align: middle;">${idx + 1}</td>
+                <td class="d">${desc || 'Item ' + (idx + 1)}${photos ? '<div class="qd-photos">' + photos + '</div>' : ''}</td>
+                <td class="c" rowspan="${rowspan}" style="vertical-align: middle;">${qty}</td>
+                <td class="c" rowspan="${rowspan}" style="vertical-align: middle;">${rteEscape(unit)}</td>
+                ${priceCells}
             </tr>`;
+            groupRows.slice(1).forEach(function (subdescRow) {
+                var subdesc = subdescRow.querySelector('.li-desc') ? subdescRow.querySelector('.li-desc').value.trim() : '';
+                rowsHtml += `<tr><td class="d">${subdesc}</td></tr>`;
+            });
         });
 
         if (!itemRows.length) {
             rowsHtml = `<tr><td colspan="${priced ? 6 : 4}" class="c" style="padding: 16px;">No line items added yet.</td></tr>`;
         }
 
-        var discVal = parseFloat(document.getElementById('discountInput') ? document.getElementById('discountInput').value : 0) || 0;
+        var discVal = parseFloat(document.getElementById('discountValue') ? document.getElementById('discountValue').value : 0) || 0;
         var discType = document.getElementById('discountType') ? document.getElementById('discountType').value : 'fixed';
         var discountAmount = (discType === 'pct') ? (subtotal * (discVal / 100)) : Math.min(subtotal, discVal);
         var taxable = Math.max(0, subtotal - discountAmount);
@@ -1514,11 +2288,7 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
                     <tr><th>PAYMENT TERMS:</th></tr>
                     <tr>
                         <td>
-                            <p>
-                                <span class="red">1. 50% Advance against security cheque and balance after completion of work.</span><br>
-                                2. All invoices will be charged ${Math.round(vatRate * 100)}% VAT as per UAE law.<br>
-                                3. Payment Cheque or Bank Payee to: <b>RICH MOUNT CONTRACTING &amp; INTERIORS L.L.C.</b>
-                            </p>
+                            <p><span class="red">1. 50% Advance against security cheque and balance after completion of work.</span><br>2. All invoices will be charged ${Math.round(vatRate * 100)}% VAT as per UAE law.<br>3. Payment Cheque or Bank Payee to: <b>RICH MOUNT CONTRACTING &amp; INTERIORS L.L.C.</b></p>
                         </td>
                     </tr>
                 </table>
@@ -1557,6 +2327,25 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
     document.addEventListener('DOMContentLoaded', function() {
         if (window.location.search.indexOf('preview=1') !== -1) {
             openQuotePreviewModal();
+        }
+    });
+
+    // Forward mouse-wheel scroll from fixed timeline bar and summary sidebar to content
+    document.addEventListener('DOMContentLoaded', function() {
+        var main = document.querySelector('.q-main');
+        var bar = document.querySelector('.status-bar');
+        var side = document.querySelector('.q-side');
+        if (main && bar) {
+            bar.addEventListener('wheel', function(e) {
+                main.scrollTop += e.deltaY;
+            }, { passive: true });
+        }
+        if (main && side) {
+            side.addEventListener('wheel', function(e) {
+                if (side.scrollHeight <= side.clientHeight) {
+                    main.scrollTop += e.deltaY;
+                }
+            }, { passive: true });
         }
     });
 </script>

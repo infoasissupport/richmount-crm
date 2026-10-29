@@ -69,17 +69,43 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($quote->lineItems as $i => $item)
+            @php $itemNo = 0; @endphp
+            @forelse($quote->lineItems as $item)
+                @if($item->isSection())
+                    {{-- section heading (e.g. PRELIMINARIES) across the table; items keep counting 1, 2, 3… --}}
+                    <tr class="sect"><td colspan="{{ $priced ? 6 : 4 }}">{{ $item->description }}</td></tr>
+                    @continue
+                @endif
+                @if($item->isSubDesc())
+                    @continue
+                @endif
+                @php $itemNo++; @endphp
+                @php
+                    $subdescs = $quote->lineItems->slice($loop->index + 1)->takeWhile(fn ($next) => $next->isSubDesc());
+                    $groupRowspan = 1 + $subdescs->count();
+                @endphp
                 <tr>
-                    <td class="c">{{ $i + 1 }}</td>
-                    <td class="d">{!! \App\Support\RichText::toHtml($item->description) ?: e('Item ' . ($i + 1)) !!}</td>
-                    <td class="c">{{ (float) $item->quantity }}</td>
-                    <td class="c">{{ $item->unit }}</td>
+                    <td class="c" rowspan="{{ $groupRowspan }}" style="vertical-align: middle;">{{ $itemNo }}</td>
+                    <td class="d">
+                        {!! \App\Support\RichText::toHtml($item->description) ?: e('Item ' . $itemNo) !!}
+                        @if(!empty($item->photos))
+                            <div class="qd-photos">
+                                @foreach($item->photos as $n => $photo)
+                                    <img src="{{ asset('storage/' . $photo) }}" alt="Item {{ $itemNo }} image {{ $n + 1 }}">
+                                @endforeach
+                            </div>
+                        @endif
+                    </td>
+                    <td class="c" rowspan="{{ $groupRowspan }}" style="vertical-align: middle;">{{ (float) $item->quantity }}</td>
+                    <td class="c" rowspan="{{ $groupRowspan }}" style="vertical-align: middle;">{{ $item->unit }}</td>
                     @if($priced)
-                        <td class="c">{{ $money($item->unit_price) }}</td>
-                        <td class="r">{{ $money($item->total_amount) }}</td>
+                        <td class="c" rowspan="{{ $groupRowspan }}" style="vertical-align: middle;">{{ $money($item->unit_price) }}</td>
+                        <td class="r" rowspan="{{ $groupRowspan }}" style="vertical-align: middle;">{{ $money($item->total_amount) }}</td>
                     @endif
                 </tr>
+                @foreach($subdescs as $subdesc)
+                    <tr><td class="d">{!! \App\Support\RichText::toHtml($subdesc->description) !!}</td></tr>
+                @endforeach
             @empty
                 <tr><td colspan="{{ $priced ? 6 : 4 }}" class="c" style="padding: 16px;">No line items added yet.</td></tr>
             @endforelse

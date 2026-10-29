@@ -12,7 +12,6 @@
 <section class="page-head" id="pageHead">
     <div>
         <h1>Quotations</h1>
-        <p class="sub">Draft, review, approve, and send branch-specific quotations to clients.</p>
     </div>
     <div class="page-actions">
         @can('quotes.create')
@@ -26,233 +25,214 @@
 
 <div class="dash-scroll">
     {{-- KPIs --}}
-    <section class="kpi-grid four" id="kpis" aria-label="Key figures">
-        <div class="kpi">
-            <span class="kpi-top">
-                <span class="kpi-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-text"/></svg></span>
-            </span>
-            <span class="kpi-value">{{ number_format($kpis['total']) }}</span>
-            <span class="kpi-label">Total Quotations</span>
-            <span class="kpi-note">All stages</span>
-        </div>
+    @include('partials.kpi-cards', ['kpis' => $kpiCards, 'gridClass' => 'four'])
 
-        <div class="kpi">
-            <span class="kpi-top">
-                <span class="kpi-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"/></svg></span>
-            </span>
-            <span class="kpi-value">{{ number_format($kpis['drafts']) }}</span>
-            <span class="kpi-label">Drafts</span>
-            <span class="kpi-note">In preparation</span>
-        </div>
-
-        <div class="kpi">
-            <span class="kpi-top">
-                <span class="kpi-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-clock"/></svg></span>
-            </span>
-            <span class="kpi-value">{{ number_format($kpis['pending']) }}</span>
-            <span class="kpi-label">Pending Approval</span>
-            <span class="kpi-note">Awaiting estimation sign-off</span>
-        </div>
-
-        <div class="kpi">
-            <span class="kpi-top">
-                <span class="kpi-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-award"/></svg></span>
-            </span>
-            <span class="kpi-value">AED {{ number_format($kpis['awarded_value'], 2) }}</span>
-            <span class="kpi-label">Awarded Value</span>
-            <span class="kpi-note">Won opportunities</span>
-        </div>
-    </section>
-
-    {{-- Quotations Table Card --}}
+    {{-- Quotations Table Card (same header, filters and cell design as Lead Management) --}}
     <section class="card fill" id="quotesTable">
-        <header class="card-head" style="border-bottom: 1px solid #eee; padding-bottom: 12px;">
-            <h2>
-                <span class="head-ic">
-                    <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-text"/></svg>
-                </span>
-                Quotations
-            </h2>
-        </header>
-
-        <div style="padding: 14px 18px 0 18px;">
-            {{-- Status Tabs with Counts --}}
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;">
-                @php
-                    $tabsList = [
-                        'all' => ['label' => 'All', 'count' => $tabCounts['all'] ?? 0],
-                        'draft' => ['label' => 'Draft', 'count' => $tabCounts['draft'] ?? 0],
-                        'pending' => ['label' => 'Pending Approval', 'count' => $tabCounts['pending'] ?? 0],
-                        'approved' => ['label' => 'Approved', 'count' => $tabCounts['approved'] ?? 0],
-                        'sent' => ['label' => 'Sent', 'count' => $tabCounts['sent'] ?? 0],
-                        'awarded' => ['label' => 'Awarded', 'count' => $tabCounts['awarded'] ?? 0],
-                        'awaiting_project' => ['label' => 'Awaiting Project', 'count' => $tabCounts['awaiting_project'] ?? 0],
-                    ];
-                @endphp
-                @foreach($tabsList as $tKey => $tData)
-                    @php $isActive = ($tab === $tKey); @endphp
-                    <a href="{{ route('quotations.index', array_merge(request()->query(), ['tab' => $tKey])) }}" 
-                       style="padding: 5px 12px; border-radius: 20px; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-weight: {{ $isActive ? '600' : '500' }}; background: {{ $isActive ? 'var(--primary-soft, #FFF0F3)' : '#F8FAFC' }}; color: {{ $isActive ? 'var(--primary, #A30D2D)' : '#64748B' }}; border: 1px solid {{ $isActive ? '#FFE4E8' : '#E2E8F0' }}; transition: all 0.15s ease;">
-                        <span>{{ $tData['label'] }}</span>
-                        <span style="font-size: 11px; padding: 1px 7px; border-radius: 10px; font-weight: 600; background: {{ $isActive ? 'var(--primary, #A30D2D)' : '#E2E8F0' }}; color: {{ $isActive ? '#ffffff' : '#64748B' }};">
-                            {{ $tData['count'] }}
-                        </span>
-                    </a>
-                @endforeach
-            </div>
-
-            {{-- Search & Export Toolbar --}}
-            <form method="GET" action="{{ route('quotations.index') }}" id="quotesSearchForm" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
-                <input type="hidden" name="tab" value="{{ $tab }}">
-                <div style="display: flex; align-items: center; gap: 10px; flex: 1; max-width: 450px;">
-                    <label class="search-input" style="flex: 1; display: flex; align-items: center; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0 10px; height: 36px;">
-                        <svg class="ic sm" style="width: 15px; height: 15px; color: #94a3b8; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-search"/></svg>
-                        <input type="search" name="search" value="{{ request('search') }}" placeholder="Search records..." style="border: none; outline: none; background: transparent; width: 100%; font-size: 13px;" onkeydown="if(event.key === 'Enter') this.form.submit()">
+        <header class="card-head recent-head">
+            <h2>Quotations</h2>
+            <div class="head-actions">
+                <form method="GET" action="{{ route('quotations.index') }}" class="recent-filters">
+                    <label class="search-input recent-search">
+                        <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg>
+                        <input type="search" name="search" value="{{ request('search') }}" placeholder="Search by quote no, client, subject..." aria-label="Search quotations" onchange="this.form.submit()">
                     </label>
-                    <span style="font-size: 12.5px; color: var(--muted, #64748B); white-space: nowrap;">{{ $quotations->total() }} records</span>
-                </div>
 
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <a class="btn btn-ghost btn-sm" href="{{ request()->fullUrlWithQuery(['export' => 'csv']) }}" style="border: 1px solid #e2e8f0; height: 34px; padding: 0 12px; font-size: 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; color: #334155; text-decoration: none;">
-                        <svg class="ic xs" style="width: 14px; height: 14px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-download"/></svg>
-                        Export CSV
-                    </a>
-
-                    <button class="btn btn-ghost btn-sm" type="button" onclick="window.print()" style="border: 1px solid #e2e8f0; height: 34px; padding: 0 12px; font-size: 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; color: #334155; cursor: pointer;">
-                        <svg class="ic xs" style="width: 14px; height: 14px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-printer"/></svg>
-                        Print
-                    </button>
-
-                    <span class="select-wrap mini" style="height: 34px;">
-                        <select name="branch_id" onchange="this.form.submit()" style="height: 34px; font-size: 12.5px; border-radius: 6px;">
-                            <option value="">All Branches</option>
-                            @foreach($branches as $b)
-                                <option value="{{ $b->id }}" {{ request('branch_id') == $b->id ? 'selected' : '' }}>{{ $b->short_name }}</option>
+                    {{-- the status dropdown replaces the old tabs (same "tab" filter, with counts) --}}
+                    <span class="select-wrap mini with-icon">
+                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-filter"/></svg>
+                        <select name="tab" aria-label="Filter by status" onchange="this.form.submit()">
+                            @foreach([
+                                'all' => 'All Status',
+                                'draft' => 'Draft',
+                                'pending' => 'Pending Approval',
+                                'approved' => 'Approved',
+                                'rejected' => 'Revision Req.',
+                                'sent' => 'Sent',
+                                'awarded' => 'Awarded',
+                                'awaiting_project' => 'Awaiting Project',
+                            ] as $tKey => $tLabel)
+                                <option value="{{ $tKey }}" {{ $tab === $tKey ? 'selected' : '' }}>{{ $tLabel }} ({{ $tabCounts[$tKey] ?? 0 }})</option>
                             @endforeach
                         </select>
                     </span>
-                </div>
-            </form>
-        </div>
+
+                    <span class="select-wrap mini with-icon">
+                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-calendar"/></svg>
+                        <select name="period" aria-label="Date period" onchange="this.form.submit()">
+                            <option value="month" {{ $period === 'month' ? 'selected' : '' }}>This Month</option>
+                            <option value="7" {{ $period === '7' ? 'selected' : '' }}>Last 7 Days</option>
+                            <option value="30" {{ $period === '30' ? 'selected' : '' }}>Last 30 Days</option>
+                            <option value="year" {{ $period === 'year' ? 'selected' : '' }}>This Year</option>
+                            <option value="all" {{ $period === 'all' ? 'selected' : '' }}>All Time</option>
+                        </select>
+                    </span>
+                </form>
+            </div>
+        </header>
 
         <div class="table-wrap page">
-            <table class="table">
+            <table class="table cards" id="quotesList">
                 <thead>
                     <tr>
+                        <th>Sl No</th>
                         <th>Quote No</th>
                         <th>Client</th>
-                        <th>Subject</th>
-                        <th>Branch</th>
-                        <th>Format</th>
+                        <th>Project</th>
                         <th>Engineer</th>
-                        <th class="num">Total (incl. VAT)</th>
+                        <th class="num">Total (AED)</th>
                         <th>Status</th>
-                        <th>Quote Date</th>
-                        <th class="ta-c">Next Step</th>
+                        <th>
+                            Date
+                            <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-down"/></svg>
+                        </th>
+                        <th class="ta-c">Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($quotations as $idx => $q)
+                    @forelse($quotations as $q)
+                        @php
+                            $qLead = $q->lead;
+                            $client = $qLead?->company_name ?: '—';
+                            $engineerName = $qLead?->assignedEngineer?->name ?? $q->preparedBy?->name;
+                            $qTone = match ($q->status) {
+                                'draft' => 'amber',
+                                'pending' => 'purple',
+                                'approved' => 'blue',
+                                'rejected' => 'red',
+                                'sent' => 'pink',
+                                'awarded' => 'primary',
+                                default => 'gray',
+                            };
+                            $qLabel = match ($q->status) {
+                                'pending' => 'Pending Approval',
+                                'rejected' => 'Revision Req.',
+                                default => ucfirst($q->status),
+                            };
+                            // data for the shared preview popup (quotations.partials.preview-modal)
+                            $quotePreview = [
+                                'number' => $q->quote_number,
+                                'doc' => route('quotations.document', $q),
+                                'pdf' => route('quotations.pdf', $q),
+                                'output' => $q->output_type ?: 'tax',
+                            ];
+                        @endphp
                         <tr>
-                            <td class="strong">
-                                <a href="{{ route('quotations.builder', ['id' => $q->id]) }}" style="color: var(--primary); font-weight: 600; text-decoration: none;">
-                                    {{ $q->quote_number }}
-                                </a>
-                            </td>
-                            <td>
-                                <strong>{{ $q->lead->company_name }}</strong>
-                            </td>
-                            <td>
-                                <span>{{ $q->lead->subject }}</span>
-                            </td>
-                            <td>{{ $q->branch->short_name ?? $q->branch->name }}</td>
-                            <td><span style="font-size: 12.5px; color: var(--muted);">{{ $q->branch->quote_format ?? 'Quote Format 1' }}</span></td>
-                            <td>{{ $q->lead->assignedEngineer?->name ?? ($q->preparedBy->name ?? 'Unassigned') }}</td>
-                            <td class="num">
-                                <b>AED {{ number_format($q->grand_total, 2) }}</b>
-                            </td>
-                            <td>
-                                @php
-                                    $qTone = match($q->status) {
-                                        'draft' => 'amber',
-                                        'pending' => 'purple',
-                                        'approved' => 'blue',
-                                        'rejected' => 'red',
-                                        'sent' => 'pink',
-                                        'awarded' => 'primary',
-                                        default => 'gray'
-                                    };
-                                    $qLabel = match($q->status) {
-                                        'pending' => 'Pending Approval',
-                                        'rejected' => 'Revision Req.',
-                                        default => ucfirst($q->status)
-                                    };
-                                @endphp
-                                <span class="pill pill-{{ $qTone }}" title="{{ $q->rejection_reason }}">
-                                    <i></i>{{ $qLabel }}
+                            <td class="dt-no" data-label="Sl No">{{ $quotations->firstItem() + $loop->index }}</td>
+                            <td data-label="Quote No">{{ $q->quote_number }}</td>
+                            <td class="strong" data-label="Client" title="{{ $client }}">
+                                <span class="cell-who">
+                                    <span class="avatar sm av-{{ \App\Support\Avatar::tone($client) }}" aria-hidden="true">{{ \App\Support\Avatar::initials($client) }}</span>
+                                    <span class="cell-text">
+                                        {{ $client }}
+                                        @if($qLead?->contact_person)<small>Attn: {{ $qLead->contact_person }}</small>@endif
+                                    </span>
                                 </span>
                             </td>
-                            <td>{{ $q->quote_date->format('d M Y') }}</td>
-                            <td class="ta-c">
-                                <div style="display: inline-flex; align-items: center; gap: 6px; justify-content: center;">
-                                    @if($q->status === 'approved')
-                                        @can('quotes.send')
-                                        <button type="button" class="btn btn-soft btn-sm" onclick="openSendModalFor({{ $q->id }}, '{{ $q->quote_number }}', '{{ addslashes($q->lead->company_name) }}', '{{ addslashes($q->lead->subject) }}', '{{ number_format($q->subtotal, 2) }}', '{{ number_format($q->vat_amount, 2) }}', '{{ number_format($q->grand_total, 2) }}', '{{ addslashes($q->lead->email ?? '') }}', '{{ addslashes($q->lead->contact_person ?: ($q->lead->customer_name ?: $q->lead->company_name)) }}')" style="color: var(--primary); background: #FFF0F3; border: 1px solid #FFE2E7; padding: 4px 10px; font-size: 12px; font-weight: 500; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
-                                            <svg class="ic xs" style="width: 13px; height: 13px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-send"/></svg>
-                                            Send
-                                        </button>
-                                        @endcan
-                                    @elseif(in_array($q->status, ['draft', 'rejected']))
-                                        @can('quotes.edit')
-                                        <a href="{{ route('quotations.builder', ['id' => $q->id]) }}" class="btn btn-soft btn-sm" style="color: var(--primary); background: #FFF0F3; border: 1px solid #FFE2E7; padding: 4px 10px; font-size: 12px; font-weight: 500; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; text-decoration: none;">
-                                            <svg class="ic xs" style="width: 13px; height: 13px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"/></svg>
-                                            Edit
+                            <td data-label="Project" title="{{ $qLead?->subject }}">
+                                <span class="cell-text">
+                                    {{ $qLead?->subject ?: '—' }}
+                                    @if($qLead)<small>{{ $qLead->departmentLabel() }}</small>@endif
+                                </span>
+                            </td>
+                            <td data-label="Engineer">
+                                @if($engineerName)
+                                    <span class="cell-who">
+                                        <span class="avatar sm av-{{ \App\Support\Avatar::tone($engineerName) }}" aria-hidden="true">{{ \App\Support\Avatar::initials($engineerName) }}</span>
+                                        <span class="cell-text">
+                                            {{ $engineerName }}
+                                            <small>Project Engineer</small>
+                                        </span>
+                                    </span>
+                                @else
+                                    <span style="color: var(--muted); font-size: 11px;">Unassigned</span>
+                                @endif
+                            </td>
+                            <td class="num" data-label="Total (AED)"><b>{{ number_format($q->grand_total, 2) }}</b></td>
+                            <td data-label="Status">
+                                <span class="pill pill-{{ $qTone }}" title="{{ $q->rejection_reason }}"><i></i>{{ $qLabel }}</span>
+                            </td>
+                            <td data-label="Date">
+                                <span class="cell-date">
+                                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-calendar"/></svg>
+                                    {{ $q->quote_date->format('d M Y') }}
+                                </span>
+                            </td>
+                            <td class="ta-c" data-label="Action">
+                                <span class="row-actions">
+                                    <a class="act view" href="{{ route('quotations.builder', ['id' => $q->id, 'preview' => 1]) }}" title="View Quotation"
+                                       aria-label="View {{ $q->quote_number }}" data-quote-preview='@json($quotePreview)'>
+                                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"/></svg>
+                                    </a>
+                                    <a class="act edit" href="{{ route('quotations.builder', ['id' => $q->id]) }}" title="Open in Builder" aria-label="Edit {{ $q->quote_number }}">
+                                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"/></svg>
+                                    </a>
+                                    <button type="button" class="act" data-row-menu title="More" aria-label="More actions for {{ $q->quote_number }}" aria-haspopup="menu" aria-expanded="false">
+                                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-more-vertical"/></svg>
+                                    </button>
+                                    <div class="popover row-menu" role="menu" hidden>
+                                        <a href="{{ route('quotations.builder', ['id' => $q->id]) }}" class="pop-item" role="menuitem">
+                                            <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-text"/></svg>
+                                            <span>Open in builder</span>
                                         </a>
-                                        @endcan
-                                    @elseif($q->status === 'pending')
-                                        <a href="{{ route('quotations.builder', ['id' => $q->id]) }}" class="btn btn-soft btn-sm" style="color: var(--primary); background: #FFF0F3; border: 1px solid #FFE2E7; padding: 4px 10px; font-size: 12px; font-weight: 500; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; text-decoration: none;">
-                                            <svg class="ic xs" style="width: 13px; height: 13px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
-                                            Review
+                                        <a href="{{ route('quotations.pdf', $q) }}" class="pop-item" role="menuitem">
+                                            <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-download"/></svg>
+                                            <span>Download PDF</span>
                                         </a>
-                                    @elseif($q->status === 'sent')
-                                        @can('quotes.award')
-                                        <form action="{{ route('quotations.award', $q) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark quotation {{ $q->quote_number }} as Awarded?');">
-                                            @csrf
-                                            <button type="submit" class="btn btn-soft btn-sm" style="color: var(--primary); background: #FFF0F3; border: 1px solid #FFE2E7; padding: 4px 10px; font-size: 12px; font-weight: 500; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
-                                                <svg class="ic xs" style="width: 13px; height: 13px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-award"/></svg>
-                                                Award
+
+                                        {{-- next workflow step for this status --}}
+                                        @if($q->status === 'approved')
+                                            @can('quotes.send')
+                                            <div class="pop-div"></div>
+                                            <button type="button" class="pop-item" role="menuitem" onclick="closeRowMenu(); openSendModalFor({{ $q->id }}, '{{ $q->quote_number }}', '{{ addslashes($client) }}', '{{ addslashes($qLead?->subject ?? '') }}', '{{ number_format($q->subtotal, 2) }}', '{{ number_format($q->vat_amount, 2) }}', '{{ number_format($q->grand_total, 2) }}', '{{ addslashes($qLead?->email ?? '') }}', '{{ addslashes($qLead?->contact_person ?: ($qLead?->customer_name ?: $client)) }}')">
+                                                <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-send"/></svg>
+                                                <span>Send to Client</span>
                                             </button>
-                                        </form>
-                                        @endcan
-                                    @elseif($q->status === 'awarded')
-                                        @if($q->project)
-                                            <a href="{{ route('projects.show', $q->project) }}" class="btn btn-soft btn-sm" style="color: var(--primary); background: #FFF0F3; border: 1px solid #FFE2E7; padding: 4px 10px; font-size: 12px; font-weight: 500; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; text-decoration: none;">
-                                                <svg class="ic xs" style="width: 13px; height: 13px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-briefcase"/></svg>
-                                                Project
+                                            @endcan
+                                        @elseif($q->status === 'pending')
+                                            <div class="pop-div"></div>
+                                            <a href="{{ route('quotations.builder', ['id' => $q->id]) }}" class="pop-item" role="menuitem">
+                                                <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
+                                                <span>Review &amp; Approve</span>
                                             </a>
-                                        @else
-                                            @can('projects.create')
-                                            <form action="{{ route('projects.create-from-quote', $q) }}" method="POST" style="display:inline;">
+                                        @elseif($q->status === 'sent')
+                                            @can('quotes.award')
+                                            <div class="pop-div"></div>
+                                            <form action="{{ route('quotations.award', $q) }}" method="POST" onsubmit="return confirm('Mark quotation {{ $q->quote_number }} as Awarded?');">
                                                 @csrf
-                                                <button type="submit" class="btn btn-soft btn-sm" style="color: var(--primary); background: #FFF0F3; border: 1px solid #FFE2E7; padding: 4px 10px; font-size: 12px; font-weight: 500; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
-                                                    <svg class="ic xs" style="width: 13px; height: 13px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-briefcase"/></svg>
-                                                    Create Project
+                                                <button type="submit" class="pop-item" role="menuitem">
+                                                    <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-award"/></svg>
+                                                    <span>Mark as Awarded</span>
                                                 </button>
                                             </form>
                                             @endcan
+                                        @elseif($q->status === 'awarded')
+                                            @if($q->project)
+                                                <div class="pop-div"></div>
+                                                <a href="{{ route('projects.show', $q->project) }}" class="pop-item" role="menuitem">
+                                                    <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-briefcase"/></svg>
+                                                    <span>Open Project</span>
+                                                </a>
+                                            @else
+                                                @can('projects.create')
+                                                <div class="pop-div"></div>
+                                                <form action="{{ route('projects.create-from-quote', $q) }}" method="POST" onsubmit="return confirm('Create a project from quotation {{ $q->quote_number }}?');">
+                                                    @csrf
+                                                    <button type="submit" class="pop-item" role="menuitem">
+                                                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-briefcase"/></svg>
+                                                        <span>Create Project</span>
+                                                    </button>
+                                                </form>
+                                                @endcan
+                                            @endif
                                         @endif
-                                    @endif
-
-                                    {{-- Eye View link --}}
-                                    <a class="act" href="{{ route('quotations.builder', ['id' => $q->id, 'preview' => 1]) }}" title="Preview Quotation" style="color: #64748B; margin-left: 2px;">
-                                        <svg class="ic sm" style="width: 16px; height: 16px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"/></svg>
-                                    </a>
-                                </div>
+                                    </div>
+                                </span>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" class="empty">No quotations found in this tab.</td>
+                            <td colspan="9" class="empty">No quotations found for these filters.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -265,70 +245,14 @@
     </section>
 </div>
 
-{{-- Create Quotation Modal --}}
-<div class="modal-wrap" id="createQuoteModal" style="display: none;" onclick="if(event.target === this) closeCreateQuoteModal()">
-    <div class="modal modal-md" role="dialog" aria-modal="true" aria-labelledby="createQuoteModalTitle" style="max-width: 540px;">
-        <div class="modal-head">
-            <div>
-                <h3 id="createQuoteModalTitle">Create Quotation</h3>
-                <p>Choose the lead &mdash; the quotation editor opens with its details filled in.</p>
-            </div>
-            <button class="icon-btn" type="button" onclick="closeCreateQuoteModal()" aria-label="Close">
-                <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
-            </button>
-        </div>
-        <form method="GET" action="{{ route('quotations.builder') }}">
-            <div class="modal-body" style="padding-top: 14px;">
-                @if(isset($availableLeads) && $availableLeads->isNotEmpty())
-                    <label class="field" style="margin-bottom: 6px;">
-                        <span class="field-label">Lead</span>
-                        <span class="select-wrap">
-                            <select name="lead" id="quoteLeadSelect" required>
-                                @foreach($availableLeads as $lead)
-                                    <option value="{{ $lead->id }}">
-                                        {{ $lead->lead_number }} &middot; {{ $lead->company_name }} &mdash; {{ $lead->subject }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </span>
-                    </label>
-                @else
-                    <div style="padding: 16px; background: #FFF8E6; border: 1px solid #FFE0A3; border-radius: 8px; font-size: 13px; color: #8A5B00;">
-                        No active leads found to quote. Please <a href="{{ route('leads.index', ['new' => 1]) }}" style="color: var(--primary); font-weight: 600; text-decoration: underline;">create a lead first</a>.
-                    </div>
-                @endif
-            </div>
+@include('quotations.partials.preview-modal')
+@include('leads.partials.row-tools')
 
-            <div class="modal-foot">
-                <button class="btn btn-ghost" type="button" onclick="closeCreateQuoteModal()">Cancel</button>
-                @if(isset($availableLeads) && $availableLeads->isNotEmpty())
-                    <button class="btn btn-primary" type="submit">
-                        <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-text"/></svg>
-                        Open Quotation Editor
-                    </button>
-                @else
-                    <a class="btn btn-primary" href="{{ route('leads.index', ['new' => 1]) }}">
-                        <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg>
-                        Create New Lead
-                    </a>
-                @endif
-            </div>
-        </form>
-    </div>
-</div>
+@include('quotations.partials.create-modal')
 @endsection
 
 @push('scripts')
 <script>
-    function openCreateQuoteModal() {
-        var modal = document.getElementById('createQuoteModal');
-        if (modal) modal.style.display = 'grid';
-    }
-    function closeCreateQuoteModal() {
-        var modal = document.getElementById('createQuoteModal');
-        if (modal) modal.style.display = 'none';
-    }
-
     function openSendModalFor(id, quoteNo, customer, project, subtotal, vat, total, email, contact) {
         var form = document.getElementById('listSendForm');
         if (form) form.action = '/quotations/' + id + '/send';

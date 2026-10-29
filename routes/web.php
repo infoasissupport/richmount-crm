@@ -57,6 +57,8 @@ Route::middleware('auth')->group(function () {
 
     // Phase 2: Quotations Workflow & Builder
     Route::get('/quotations/builder', [QuotationController::class, 'builder'])->name('quotations.builder');
+    Route::post('/quotations/line-photos', [QuotationController::class, 'uploadLinePhoto'])->name('quotations.line-photo');
+    Route::post('/quotations/attachments', [QuotationController::class, 'uploadAttachment'])->name('quotations.attachment');
     Route::post('/quotations/{quotation}/autosave', [QuotationController::class, 'autosave'])->name('quotations.autosave');
     Route::post('/quotations/{quotation}/clone', [QuotationController::class, 'clone'])->name('quotations.clone');
     Route::post('/quotations/{quotation}/submit', [QuotationController::class, 'submit'])->name('quotations.submit');

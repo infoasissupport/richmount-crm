@@ -304,7 +304,7 @@ background: rgba(255, 255, 255, .08);
    gap: 10px; 
 }
 .page-head h1 { text-transform: capitalize; font-size: 28px; font-weight: 800; letter-spacing: -.3px; line-height: 1.15; }
-.page-head p { color: var(--text-2); margin-top: 4px; font-size: 13.5px; }
+.page-head p { text-transform: capitalize; color: var(--text-2); margin-top: 4px; font-size: 13.5px; }
 .page-actions { display: flex; align-items: stretch; gap: 7px; }
 
 
@@ -372,7 +372,7 @@ a.pop-item { text-decoration: none; }
 .head-ic { color: var(--primary); display: inline-grid; place-items: center; }
 .head-ic.solid { width: 26px; height: 26px; border-radius: 6px; background: var(--primary); color: #fff; }
 .head-ic.solid .ic { width: 16px; height: 16px; }
-.head-actions { display: flex; align-items: center; gap: 16px; }
+.head-actions { display: flex; align-items: center; gap: 10px; }
 .chart-actions { gap: 8px;  }
 /* chart card headers: keep the title on one line; the dropdowns drop to a second row when space runs out */
 .chart-card .card-head { flex-wrap: wrap; row-gap: 10px; }
@@ -891,6 +891,13 @@ a.pop-item { text-decoration: none; }
 .fd-list li .ic { color: var(--primary); flex: none; }
 .fd-list li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 .fd-list li small { color: var(--muted); flex: none; }
+/* quotation Attachments card: uploaded files under the upload box */
+.att-list a { color: var(--text); text-decoration: none; }
+.att-list a:hover { color: var(--primary); text-decoration: underline; }
+.att-list .att-remove { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.att-list .att-remove:hover { background: var(--red-soft); color: var(--red); }
+.att-list li.att-pending { color: var(--muted); font-style: italic; }
+.att-empty { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
 .fd-list li.fd-clear { border: 0; padding: 0; background: none; justify-content: flex-end; }
 .check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); cursor: pointer; }
 .check input { width: 16px; height: 16px; accent-color: var(--primary); }
@@ -1369,10 +1376,50 @@ a.pager-num, .pager-btns a.btn { text-decoration: none; }
 .li-photo .ph-add { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); font-size: 12px; cursor: pointer; }
 .li-photo .ph-add:hover { border-color: var(--primary); color: var(--primary); }
 .li-photo .ph-add input { display: none; }
+.li-photo .ph-add[hidden] { display: none; }
+.li-photo .ph button .ic { width: 12px; height: 12px; }
+.rte + .li-photo { margin-top: 8px; }
+/* enlarged line item photo (quotation builder) */
+.photo-viewer { position: fixed; inset: 0; z-index: 1200; background: rgba(8, 10, 11, .82); display: flex; align-items: center; justify-content: center; padding: 56px 72px; }
+.photo-viewer[hidden] { display: none; }
+.photo-viewer img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; box-shadow: 0 10px 40px rgba(0, 0, 0, .4); background: #fff; }
+.pv-btn { position: absolute; width: 42px; height: 42px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .14); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.pv-btn:hover { background: rgba(255, 255, 255, .26); }
+.pv-btn[hidden] { display: none; }
+.pv-close { top: 14px; right: 14px; }
+.pv-prev { left: 16px; top: 50%; transform: translateY(-50%); }
+.pv-next { right: 16px; top: 50%; transform: translateY(-50%); }
+.pv-count { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); color: #fff; font-size: 13px; opacity: .85; }
+@media (max-width: 600px) { .photo-viewer { padding: 56px 12px; } .pv-prev, .pv-next { top: auto; bottom: 10px; transform: none; } }
 .li-desc { min-width: 220px; height: auto; min-height: 90px; padding: 7px 8px; line-height: 1.45; resize: vertical; display: block; font-family: inherit; }
+/* quotation builder "Add from catalog" menu: anchored under its button, scrolls when the list is long */
+.catalog-wrap { position: relative; }
+.catalog-wrap .catalog-menu { position: absolute; top: calc(100% + 6px); right: 0; width: 280px; max-height: min(60vh, 520px); overflow-y: auto; z-index: 40; }
+.catalog-wrap .catalog-menu[hidden] { display: none; }
+.catalog-menu .pop-item { align-items: flex-start; }
+.catalog-menu .pop-item small { display: inline-block; margin-top: 2px; }
+/* line item description editor (quotations.partials.rte): toolbar + editable area */
+.rte { width: 100%; min-width: 260px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.rte:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(148, 28, 60, .12); }
+.rte-bar { display: flex; align-items: center; gap: 2px; padding: 3px 4px; border-bottom: 1px solid var(--line-soft); background: #FAFBFC; border-radius: 6px 6px 0 0; }
+.rte-btn { height: 26px; min-width: 26px; padding: 0 4px; border: 0; border-radius: 5px; background: none; color: var(--text-2); font-size: 13px; line-height: 1; cursor: pointer; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.rte-btn:hover { background: var(--line-soft); color: var(--text); }
+.rte-btn .ic { width: 14px; height: 14px; }
+.rte-a { font-weight: 700; }
+.rte-chip { display: block; width: 14px; height: 3px; border-radius: 1px; }
+.rte-bg { padding: 1px 4px; border-radius: 3px; font-weight: 700; color: var(--text); }
+.rte-split { display: inline-flex; align-items: center; }
+.rte-pick { position: relative; width: 14px; height: 26px; display: inline-grid; place-items: center; border-radius: 5px; color: var(--muted); font-size: 10px; cursor: pointer; }
+.rte-pick:hover { background: var(--line-soft); color: var(--text); }
+.rte-pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; padding: 0; border: 0; }
+.rte-sep { width: 1px; height: 18px; margin: 0 3px; background: var(--line); }
+/* text wraps at the box edge (the table around it is nowrap) — long words break too — and the box shows
+   up to 5 lines before it scrolls, so it never grows wider or taller than the column */
+.rte-area { min-height: 70px; max-height: calc(5 * 1.45em + 14px); overflow-x: hidden; overflow-y: auto; padding: 7px 8px; font-size: 12.5px; line-height: 1.45; color: var(--text); outline: 0; white-space: normal; overflow-wrap: anywhere; }
+.rte-area:empty::before { content: attr(data-placeholder); color: var(--muted); pointer-events: none; }
 .li-unit { width: 100px; }
-.li-qty { width: 76px; text-align: right; }
-.li-price { width: 112px; text-align: right; }
+.li-qty { width: 76px; text-align: left; }
+.li-price { width: 112px; text-align: left; }
 .li-total { font-weight: 600; color: var(--text); min-width: 110px; }
 .items-hint { margin: 8px 0 0; }
 .q-summary .sum-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; font-size: 13px; color: var(--text-2); border-bottom: 1px dashed var(--line-soft); }
@@ -1381,7 +1428,8 @@ a.pager-num, .pager-btns a.btn { text-decoration: none; }
 .q-summary .sum-row.grand { border-bottom: 0; border-top: 2px solid var(--primary); margin-top: 6px; padding-top: 10px; font-size: 15px; color: var(--text); font-weight: 700; }
 .q-summary .sum-row.grand b { color: var(--primary); font-size: 17px; }
 .disc-ctl { display: inline-flex; gap: 6px; align-items: center; }
-.disc-ctl input { width: 100px; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; text-align: right; font-size: 12.5px; }
+.disc-ctl input { width: 100px; height: 32px; padding: 0 8px;
+   border: 1px solid var(--line); border-radius: 6px; text-align: left; font-size: 12.5px; }
 .q-summary .select-wrap.mini select { min-width: 72px; }
 .file-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .file-list li { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 7px 10px; border: 1px solid var(--line-soft); border-radius: 8px; }
@@ -1521,11 +1569,11 @@ a.pager-num, .pager-btns a.btn { text-decoration: none; }
 @media (max-width: 640px) { .perm-list { grid-template-columns: minmax(0, 1fr); } }
 
 
-/* lead table (dashboard + Lead Management) on desktop: long names wrap onto a second line instead of
-   widening the table past its card; 1200–1599px is tight beside the sidebar, so it also goes compact
-   (below 1200px it switches to the card layout) */
+/* lead table (dashboard + Lead Management) and Quotations table on desktop: long names wrap onto a second
+   line instead of widening the table past its card; 1200–1599px is tight beside the sidebar, so they also go
+   compact (below 1200px they switch to the card layout) */
 @media (min-width: 1200px) {
-  #recentTable .cell-text { white-space: normal; max-width: 160px; overflow-wrap: break-word; }
+  :is(#recentTable, #quotesList) .cell-text { white-space: normal; max-width: 160px; overflow-wrap: break-word; }
 }
 /* top bar at 1200–1365px: the search box gives way first (and drops its Ctrl+K hint) so the breadcrumb stays readable */
 @media (min-width: 1200px) and (max-width: 1365px) {
@@ -1533,19 +1581,19 @@ a.pager-num, .pager-btns a.btn { text-decoration: none; }
   .gsearch kbd { display: none; }
 }
 @media (min-width: 1200px) and (max-width: 1599px) {
-  #recentTable th, #recentTable td { padding-left: 6px; padding-right: 6px; }
-  #recentTable th:first-child, #recentTable td:first-child { padding-left: 10px; }
-  #recentTable .avatar.sm { width: 28px; height: 28px; font-size: 11px; }
-  #recentTable .cell-who { gap: 8px; }
-  #recentTable .cell-text { max-width: 130px; }
-  #recentTable .row-actions { gap: 5px; }
-  #recentTable .act { width: 30px; height: 30px; }
-  #recentTable .cell-date { gap: 6px; }
+  :is(#recentTable, #quotesList) :is(th, td) { padding-left: 6px; padding-right: 6px; }
+  :is(#recentTable, #quotesList) :is(th, td):first-child { padding-left: 10px; }
+  :is(#recentTable, #quotesList) .avatar.sm { width: 28px; height: 28px; font-size: 11px; }
+  :is(#recentTable, #quotesList) .cell-who { gap: 8px; }
+  :is(#recentTable, #quotesList) .cell-text { max-width: 130px; }
+  :is(#recentTable, #quotesList) .row-actions { gap: 5px; }
+  :is(#recentTable, #quotesList) .act { width: 30px; height: 30px; }
+  :is(#recentTable, #quotesList) .cell-date { gap: 6px; }
 }
 /* tightest desktop range: smaller text and no Sl No column so long names still fit without splitting words */
 @media (min-width: 1200px) and (max-width: 1279px) {
-  #recentTable { font-size: 13px; }
-  #recentTable th:first-child, #recentTable td.rl-no { display: none; }
-  #recentTable th:nth-child(2), #recentTable td.rl-leadno { padding-left: 12px; }
-  #recentTable .cell-date .ic { display: none; }
+  :is(#recentTable, #quotesList) { font-size: 13px; }
+  :is(#recentTable, #quotesList) :is(th, td):first-child { display: none; }
+  :is(#recentTable, #quotesList) :is(th, td):nth-child(2) { padding-left: 12px; }
+  :is(#recentTable, #quotesList) .cell-date .ic { display: none; }
 }

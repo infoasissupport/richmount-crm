@@ -139,8 +139,8 @@
 </section>
 
 <div class="dash-scroll">
-    {{-- Open Quotation Workspace Tabs with Minimize option --}}
-    <div class="ws-tabs-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px;">
+    {{-- Open Quotation Workspace Tabs --}}
+    <div class="ws-tabs-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0; gap: 8px;">
         <div style="display: flex; align-items: center; gap: 10px; overflow-x: auto; flex: 1;">
             <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted, #64748B); white-space: nowrap;">
                 <svg class="ic xs" style="width: 14px; height: 14px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-file-text"/></svg>
@@ -161,10 +161,6 @@
                 @endif
             @endforeach
         </div>
-        <button class="btn btn-ghost btn-sm" type="button" id="minimizeBtn" onclick="toggleMinimize()" style="font-size: 12px; padding: 4px 10px; height: 28px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
-            <svg class="ic xs" id="minimizeIcon" style="width: 13px; height: 13px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-down"/></svg>
-            <span id="minimizeText">Minimize</span>
-        </button>
     </div>
 
     {{-- Workflow Status Stepper --}}
@@ -234,6 +230,7 @@
         @else
             <input type="hidden" name="lead_id" value="{{ $lead->id }}">
         @endif
+        <input type="hidden" name="submit_for_approval" id="submitForApproval" value="0">
 
         <div class="q-layout">
             <div class="q-main">
@@ -272,6 +269,7 @@
                         <dt>Customer</dt><dd><strong>{{ $lead->company_name }}</strong></dd>
                         <dt>Contact</dt><dd>{{ $lead->contact_person }} ({{ $lead->phone }})</dd>
                         <dt>Project Subject</dt><dd>{{ $lead->subject }}</dd>
+                        <dt>RFQ / PR Number</dt><dd>{{ $lead->rfq_number ?: '—' }}</dd>
                         <dt>Branch</dt><dd>{{ $lead->branch->name }}</dd>
                         <dt>Quote Format</dt><dd><span class="pill pill-primary"><i></i>{{ $lead->branch->quote_format }}</span></dd>
                         <dt>Assigned Engineer</dt><dd>{{ $lead->assignedEngineer?->name ?? 'Unassigned' }}</dd>
@@ -317,6 +315,35 @@
                             Line Items
                         </h2>
                         <div class="head-actions">
+                            @php
+                                // catalog menu: the lead's department in full, then two items from each other trade
+                                $catalog = config('quotation_catalog', []);
+                                $ownDept = array_key_exists($lead->department, $catalog) ? $lead->department : array_key_first($catalog);
+                                $otherTrades = collect($catalog)->except($ownDept)->flatMap(fn ($items) => array_slice($items, 0, 2));
+                            @endphp
+                            <div class="catalog-wrap">
+                                <button class="btn btn-ghost btn-sm" type="button" id="catalogBtn" onclick="toggleCatalogMenu(event)" aria-haspopup="menu" aria-expanded="false" aria-controls="catalogMenu">
+                                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-book"/></svg>
+                                    Add from catalog
+                                </button>
+                                <div class="popover catalog-menu" id="catalogMenu" role="menu" hidden>
+                                    <div class="pop-head">{{ $lead->departmentLabel() }}</div>
+                                    @foreach($catalog[$ownDept] ?? [] as [$desc, $unit])
+                                        <button type="button" class="pop-item" role="menuitem" data-catalog-desc="{{ $desc }}" data-catalog-unit="{{ $unit }}">
+                                            <span>{{ $desc }}<br><small>{{ $unit }}</small></span>
+                                        </button>
+                                    @endforeach
+                                    @if($otherTrades->isNotEmpty())
+                                        <div class="pop-div"></div>
+                                        <div class="pop-head">Other trades</div>
+                                        @foreach($otherTrades as [$desc, $unit])
+                                            <button type="button" class="pop-item" role="menuitem" data-catalog-desc="{{ $desc }}" data-catalog-unit="{{ $unit }}">
+                                                <span>{{ $desc }}<br><small>{{ $unit }}</small></span>
+                                            </button>
+                                        @endforeach
+                                    @endif
+                                </div>
+                            </div>
                             <button class="btn btn-soft btn-sm" type="button" onclick="addLineItemRow()">
                                 <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg>
                                 Add Line Item
@@ -346,7 +373,8 @@
                                         <tr class="item-row">
                                             <td class="li-no">{{ $i + 1 }}</td>
                                             <td>
-                                                <textarea class="li-in li-desc" name="items[{{ $i }}][description]" rows="3" placeholder="Item specifications &amp; scope">{!! e($item->description) !!}</textarea>
+                                                @include('quotations.partials.rte', ['name' => "items[$i][description]", 'value' => $item->description, 'placeholder' => 'Item specifications & scope'])
+                                                @include('quotations.partials.line-photos', ['prefix' => "items[$i]", 'photos' => $item->photos ?? []])
                                             </td>
                                             <td class="num">
                                                 <input class="li-in li-qty" type="number" step="any" min="0" name="items[{{ $i }}][quantity]" value="{{ (float) $item->quantity }}" oninput="calcRow(this)" required>
@@ -371,13 +399,14 @@
                                     <tr class="item-row">
                                         <td class="li-no">1</td>
                                         <td>
-                                            <textarea class="li-in li-desc" name="items[0][description]" rows="3" placeholder="Supply and installation of works according to specifications..."></textarea>
+                                            @include('quotations.partials.rte', ['name' => 'items[0][description]', 'value' => '', 'placeholder' => 'Supply and installation of works according to specifications...'])
+                                            @include('quotations.partials.line-photos', ['prefix' => 'items[0]', 'photos' => []])
                                         </td>
                                         <td class="num">
                                             <input class="li-in li-qty" type="number" step="any" min="0" name="items[0][quantity]" value="1" oninput="calcRow(this)" required>
                                         </td>
                                         <td>
-                                            <input class="li-in li-unit" list="unitList" name="items[0][unit]" value="lump sum" placeholder="unit">
+                                            <input class="li-in li-unit" list="unitList" name="items[0][unit]" value="" placeholder="unit">
                                         </td>
                                         <td class="num">
                                             <input class="li-in li-price" type="number" step="0.01" min="0" name="items[0][unit_price]" value="0" oninput="calcRow(this)" required>
@@ -392,6 +421,29 @@
                                 @endif
                             </tbody>
                         </table>
+                    </div>
+
+                    {{-- editor markup for rows added with "Add Line Item" (__NAME__ is replaced with the field name) --}}
+                    <template id="rteTemplate">
+                        @include('quotations.partials.rte', ['name' => '__NAME__', 'value' => '', 'placeholder' => 'Item specifications & scope'])
+                    </template>
+                    <template id="photoTemplate">
+                        @include('quotations.partials.line-photos', ['prefix' => '__PREFIX__', 'photos' => []])
+                    </template>
+
+                    {{-- enlarged line item photo (click a thumbnail); arrows step through that item's photos --}}
+                    <div class="photo-viewer" id="photoViewer" hidden onclick="if (event.target === this) closePhotoViewer()">
+                        <button type="button" class="pv-btn pv-close" onclick="closePhotoViewer()" aria-label="Close">
+                            <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+                        </button>
+                        <button type="button" class="pv-btn pv-prev" onclick="stepPhotoViewer(-1)" aria-label="Previous photo">
+                            <svg class="ic flip" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+                        </button>
+                        <img id="photoViewerImg" alt="Line item photo">
+                        <button type="button" class="pv-btn pv-next" onclick="stepPhotoViewer(1)" aria-label="Next photo">
+                            <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+                        </button>
+                        <span class="pv-count" id="photoViewerCount"></span>
                     </div>
 
                     <datalist id="unitList">
@@ -422,6 +474,41 @@
                             <textarea name="internal_notes" rows="2" maxlength="2000" placeholder="Cost margin notes, sub-contractor pricing...">{{ old('internal_notes', $quote?->internal_notes) }}</textarea>
                         </label>
                     </div>
+                </section>
+
+                {{-- Attachments Card: files upload right away (quotations.attachment); the hidden fields below are the
+                     full current list, which Save / autosave make the quotation match (QuotationService::syncAttachments) --}}
+                <section class="card" id="quoteAttachments">
+                    <header class="card-head">
+                        <h2>
+                            <span class="head-ic">
+                                <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-upload"/></svg>
+                            </span>
+                            Attachments
+                        </h2>
+                    </header>
+                    <input type="hidden" name="attachments_sync" value="1">
+                    <div class="field">
+                        <span class="field-label">Add files</span>
+                        <input type="file" id="attachmentInput" multiple aria-label="Add files">
+                    </div>
+                    @php $existingAttachments = $quote ? $quote->attachments : collect(); @endphp
+                    <ul class="fd-list att-list" id="attachmentList">
+                        @foreach($existingAttachments as $att)
+                            <li>
+                                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-text"/></svg>
+                                <span><a href="{{ asset('storage/' . $att->file_path) }}" download="{{ $att->file_name }}" target="_blank" rel="noopener">{{ $att->file_name }}</a></span>
+                                <small>{{ $att->file_size >= 1048576 ? number_format($att->file_size / 1048576, 1) . ' MB' : max(1, round($att->file_size / 1024)) . ' KB' }}</small>
+                                <button type="button" class="att-remove" data-att-remove title="Remove attachment" aria-label="Remove {{ $att->file_name }}">
+                                    <svg class="ic xs" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+                                </button>
+                                <input type="hidden" name="attachments[{{ $att->id }}][path]" value="{{ $att->file_path }}">
+                                <input type="hidden" name="attachments[{{ $att->id }}][name]" value="{{ $att->file_name }}">
+                                <input type="hidden" name="attachments[{{ $att->id }}][size]" value="{{ $att->file_size }}">
+                            </li>
+                        @endforeach
+                    </ul>
+                    <p class="att-empty" id="attachmentEmpty" @if($existingAttachments->isNotEmpty()) hidden @endif>No attachments</p>
                 </section>
             </div>
 
@@ -806,12 +893,14 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
 </style>
 
 <script>
-    function submitQuoteForm() {
+    // Save Draft → submitQuoteForm(); Submit for Approval → submitQuoteForm(true): saves the form, then submits it
+    function submitQuoteForm(forApproval) {
         var form = document.getElementById('quoteMainForm');
         if (!form) return;
         if (form.reportValidity && !form.reportValidity()) {
             return;
         }
+        document.getElementById('submitForApproval').value = forApproval ? '1' : '0';
         form.submit();
     }
 
@@ -823,7 +912,7 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
         tr.className = 'item-row';
         tr.innerHTML = `
             <td class="li-no">${index + 1}</td>
-            <td><textarea class="li-in li-desc" name="items[${index}][description]" rows="3" placeholder="Item specifications & scope"></textarea></td>
+            <td>${document.getElementById('rteTemplate').innerHTML.replace('__NAME__', 'items[' + index + '][description]')}${document.getElementById('photoTemplate').innerHTML.replace('__PREFIX__', 'items[' + index + ']')}</td>
             <td class="num"><input class="li-in li-qty" type="number" step="any" min="0" name="items[${index}][quantity]" value="1" oninput="calcRow(this)" required></td>
             <td><input class="li-in li-unit" list="unitList" name="items[${index}][unit]" value="nos" placeholder="unit"></td>
             <td class="num"><input class="li-in li-price" type="number" step="0.01" min="0" name="items[${index}][unit_price]" value="0" oninput="calcRow(this)" required></td>
@@ -831,8 +920,279 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
             <td class="ta-c"><button type="button" class="act" onclick="removeRow(this)" title="Remove item"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button></td>
         `;
         tbody.appendChild(tr);
+        rteInit(tr);
         calcTotals();
     }
+
+    /* ---------- Line item description editor (quotations.partials.rte) ---------- */
+    // B / text colour / background colour on the selected text; the HTML is mirrored into the hidden .li-desc field
+    // (the server keeps only bold, italic, underline and colours — App\Support\RichText)
+    var rteSaved = null; // last selection inside an editor, restored after a colour picker steals focus
+
+    function rteEscape(s) {
+        return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+    }
+
+    function rteSync(area) {
+        var store = area.parentNode.querySelector('.li-desc');
+        store.value = area.textContent.trim() ? area.innerHTML : '';
+        store.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function rteInit(root) {
+        (root || document).querySelectorAll('.rte').forEach(function (rte) {
+            if (rte.dataset.ready) return;
+            rte.dataset.ready = '1';
+            var area = rte.querySelector('.rte-area');
+            var store = rte.querySelector('.li-desc');
+            var value = store.value;
+            // saved descriptions are cleaned HTML; older ones are plain text with line breaks
+            area.innerHTML = /<[a-z][^>]*>/i.test(value) ? value : rteEscape(value).replace(/\n/g, '<br>');
+            store.value = area.textContent.trim() ? area.innerHTML : '';
+            area.addEventListener('input', function () { rteSync(area); });
+            // pasted text comes in plain, so outside formatting never sneaks in
+            area.addEventListener('paste', function (e) {
+                e.preventDefault();
+                document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text'));
+            });
+        });
+    }
+
+    function rteExec(rte, cmd, value) {
+        var area = rte.querySelector('.rte-area');
+        area.focus();
+        if (rteSaved && rteSaved.area === area) {
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(rteSaved.range);
+        }
+        document.execCommand('styleWithCSS', false, true);
+        document.execCommand(cmd, false, value || null);
+        rteSync(area);
+    }
+
+    document.addEventListener('selectionchange', function () {
+        var sel = window.getSelection();
+        if (!sel.rangeCount) return;
+        var node = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentNode);
+        var area = node && node.closest ? node.closest('.rte-area') : null;
+        if (area) rteSaved = { area: area, range: sel.getRangeAt(0).cloneRange() };
+    });
+    // toolbar buttons must not take focus away from the text being formatted
+    document.addEventListener('mousedown', function (e) {
+        if (e.target.closest('.rte-btn')) e.preventDefault();
+    });
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.rte-btn[data-cmd]');
+        if (!btn) return;
+        rteExec(btn.closest('.rte'), btn.dataset.cmd, btn.dataset.color);
+    });
+    // picking a colour applies it and makes it the button's colour for the next click
+    document.addEventListener('input', function (e) {
+        if (!e.target.matches('.rte-pick input[type=color]')) return;
+        var split = e.target.closest('.rte-split');
+        var btn = split.querySelector('.rte-btn');
+        btn.dataset.color = e.target.value;
+        var swatch = btn.querySelector('.rte-chip, .rte-bg');
+        if (swatch) swatch.style.background = e.target.value;
+        rteExec(btn.closest('.rte'), btn.dataset.cmd, e.target.value);
+    });
+    document.addEventListener('DOMContentLoaded', function () { rteInit(document.getElementById('itemsBody')); });
+
+    /* ---------- Add from catalog ---------- */
+    function setCatalogMenu(open) {
+        var menu = document.getElementById('catalogMenu');
+        if (!menu) return;
+        menu.hidden = !open;
+        document.getElementById('catalogBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    function toggleCatalogMenu(event) {
+        event.stopPropagation();
+        setCatalogMenu(document.getElementById('catalogMenu').hidden);
+    }
+    // fills the first row with an empty description (or a new row) with the item and unit, then jumps to its price
+    function addCatalogItem(desc, unit) {
+        var rows = Array.prototype.slice.call(document.querySelectorAll('#itemsBody .item-row'));
+        var row = rows.find(function (r) { return !r.querySelector('.li-desc').value.trim(); });
+        if (!row) {
+            addLineItemRow();
+            rows = document.querySelectorAll('#itemsBody .item-row');
+            row = rows[rows.length - 1];
+        }
+        var area = row.querySelector('.rte-area');
+        area.textContent = desc;
+        rteSync(area);
+        row.querySelector('.li-unit').value = unit;
+        var qty = row.querySelector('.li-qty');
+        if (!parseFloat(qty.value)) qty.value = 1;
+        calcRow(qty);
+        var price = row.querySelector('.li-price');
+        price.focus();
+        price.select();
+    }
+    document.addEventListener('click', function (e) {
+        var item = e.target.closest('[data-catalog-desc]');
+        if (item) {
+            setCatalogMenu(false);
+            addCatalogItem(item.dataset.catalogDesc, item.dataset.catalogUnit);
+            return;
+        }
+        if (!e.target.closest('#catalogMenu')) setCatalogMenu(false);
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setCatalogMenu(false); });
+
+    /* ---------- Line item photos (quotations.partials.line-photos): up to 3, click to enlarge ---------- */
+    var MAX_LINE_PHOTOS = 3;
+
+    function refreshPhotoAdd(strip) {
+        var count = strip.querySelectorAll('.ph').length;
+        var add = strip.querySelector('.ph-add');
+        add.hidden = count >= MAX_LINE_PHOTOS;
+        add.querySelector('.ph-add-text').textContent = count ? 'Add' : 'Add photo';
+    }
+
+    function addPhotoThumb(strip, path, url) {
+        var n = strip.querySelectorAll('.ph').length + 1;
+        var ph = document.createElement('span');
+        ph.className = 'ph';
+        ph.innerHTML = '<img alt="Item photo ' + n + '" title="Click to enlarge" data-photo-view>'
+            + '<button type="button" data-photo-remove title="Remove photo" aria-label="Remove photo ' + n + '">'
+            + '<svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>'
+            + '<input type="hidden">';
+        ph.querySelector('img').src = url;
+        var hidden = ph.querySelector('input');
+        hidden.name = strip.dataset.prefix + '[photos][]';
+        hidden.value = path;
+        strip.insertBefore(ph, strip.querySelector('.ph-add'));
+        refreshPhotoAdd(strip);
+    }
+
+    document.addEventListener('change', function (e) {
+        var input = e.target.closest('[data-photo-input]');
+        if (!input || !input.files.length) return;
+        var strip = input.closest('.li-photo');
+        var file = input.files[0];
+        input.value = ''; // the same file can be picked again after removing it
+        if (strip.querySelectorAll('.ph').length >= MAX_LINE_PHOTOS) return;
+        if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) { alert('Please choose a JPG, PNG, WebP or GIF image.'); return; }
+        if (file.size > 5 * 1024 * 1024) { alert('Photos can be up to 5 MB.'); return; }
+
+        var text = strip.querySelector('.ph-add-text');
+        text.textContent = 'Uploading…';
+        var body = new FormData();
+        body.append('photo', file);
+        fetch("{{ route('quotations.line-photo') }}", {
+            method: 'POST',
+            body: body,
+            headers: { 'X-CSRF-TOKEN': window.csrfToken, 'Accept': 'application/json' }
+        })
+            .then(function (res) { return res.ok ? res.json() : Promise.reject(res); })
+            .then(function (data) { addPhotoThumb(strip, data.path, data.url); })
+            .catch(function () { alert('The photo could not be uploaded. Please try again.'); refreshPhotoAdd(strip); });
+    });
+
+    // enlarged view, stepping through the photos of the same line item
+    var viewerPhotos = [], viewerIndex = 0;
+    function showViewerPhoto() {
+        document.getElementById('photoViewerImg').src = viewerPhotos[viewerIndex];
+        document.getElementById('photoViewerCount').textContent = viewerPhotos.length > 1 ? (viewerIndex + 1) + ' / ' + viewerPhotos.length : '';
+        document.querySelectorAll('#photoViewer .pv-prev, #photoViewer .pv-next').forEach(function (b) { b.hidden = viewerPhotos.length < 2; });
+    }
+    function openPhotoViewer(img) {
+        viewerPhotos = Array.prototype.map.call(img.closest('.li-photo').querySelectorAll('img[data-photo-view]'), function (i) { return i.src; });
+        viewerIndex = Math.max(0, viewerPhotos.indexOf(img.src));
+        showViewerPhoto();
+        document.getElementById('photoViewer').hidden = false;
+    }
+    function stepPhotoViewer(step) {
+        viewerIndex = (viewerIndex + step + viewerPhotos.length) % viewerPhotos.length;
+        showViewerPhoto();
+    }
+    function closePhotoViewer() {
+        document.getElementById('photoViewer').hidden = true;
+    }
+
+    document.addEventListener('click', function (e) {
+        var remove = e.target.closest('[data-photo-remove]');
+        if (remove) {
+            var strip = remove.closest('.li-photo');
+            remove.closest('.ph').remove();
+            refreshPhotoAdd(strip);
+            return;
+        }
+        var img = e.target.closest('img[data-photo-view]');
+        if (img) openPhotoViewer(img);
+    });
+    document.addEventListener('keydown', function (e) {
+        if (document.getElementById('photoViewer').hidden) return;
+        if (e.key === 'Escape') closePhotoViewer();
+        if (e.key === 'ArrowRight' && viewerPhotos.length > 1) stepPhotoViewer(1);
+        if (e.key === 'ArrowLeft' && viewerPhotos.length > 1) stepPhotoViewer(-1);
+    });
+
+    /* ---------- Attachments card ---------- */
+    function attSize(b) {
+        return b < 1048576 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
+    }
+    function refreshAttachmentsEmpty() {
+        document.getElementById('attachmentEmpty').hidden = !!document.querySelector('#attachmentList li');
+    }
+    function addAttachmentRow(data) {
+        var key = 'n' + Date.now() + Math.floor(Math.random() * 1000);
+        var li = document.createElement('li');
+        li.innerHTML = '<svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-text"/></svg>'
+            + '<span><a target="_blank" rel="noopener"></a></span><small></small>'
+            + '<button type="button" class="att-remove" data-att-remove title="Remove attachment"><svg class="ic xs" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>';
+        var link = li.querySelector('a');
+        link.href = data.url;
+        link.download = data.name;
+        link.textContent = data.name;
+        li.querySelector('small').textContent = attSize(data.size);
+        li.querySelector('.att-remove').setAttribute('aria-label', 'Remove ' + data.name);
+        ['path', 'name', 'size'].forEach(function (field) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'attachments[' + key + '][' + field + ']';
+            input.value = data[field];
+            li.appendChild(input);
+        });
+        document.getElementById('attachmentList').appendChild(li);
+        refreshAttachmentsEmpty();
+    }
+    function uploadAttachment(file) {
+        if (file.size > 20 * 1024 * 1024) {
+            alert(file.name + ' is larger than 20 MB.');
+            return Promise.resolve();
+        }
+        var pending = document.createElement('li');
+        pending.className = 'att-pending';
+        pending.textContent = 'Uploading ' + file.name + '…';
+        document.getElementById('attachmentList').appendChild(pending);
+        refreshAttachmentsEmpty();
+        var body = new FormData();
+        body.append('file', file);
+        return fetch("{{ route('quotations.attachment') }}", {
+            method: 'POST',
+            body: body,
+            headers: { 'X-CSRF-TOKEN': window.csrfToken, 'Accept': 'application/json' }
+        })
+            .then(function (res) { return res.ok ? res.json() : Promise.reject(res); })
+            .then(function (data) { addAttachmentRow(data); })
+            .catch(function () { alert(file.name + ' could not be uploaded. Please try again.'); })
+            .finally(function () { pending.remove(); refreshAttachmentsEmpty(); });
+    }
+    document.addEventListener('change', function (e) {
+        if (e.target.id !== 'attachmentInput' || !e.target.files.length) return;
+        var files = Array.prototype.slice.call(e.target.files);
+        e.target.value = ''; // the upload box shows the uploaded list below instead of the picked files
+        files.reduce(function (chain, file) { return chain.then(function () { return uploadAttachment(file); }); }, Promise.resolve());
+    });
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-att-remove]');
+        if (!btn) return;
+        btn.closest('li').remove();
+        refreshAttachmentsEmpty();
+    });
 
     function removeRow(btn) {
         var tr = btn.closest('.item-row');
@@ -964,22 +1324,6 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
         openReopenModal();
     }
 
-    function toggleMinimize() {
-        var layout = document.querySelector('.q-layout');
-        var btnText = document.getElementById('minimizeText');
-        var iconUse = document.querySelector('#minimizeIcon use');
-        if (layout) {
-            if (layout.style.display === 'none') {
-                layout.style.display = 'grid';
-                btnText.textContent = 'Minimize';
-                if (iconUse) iconUse.setAttribute('href', '#i-chevron-down');
-            } else {
-                layout.style.display = 'none';
-                btnText.textContent = 'Expand';
-                if (iconUse) iconUse.setAttribute('href', '#i-chevron-right');
-            }
-        }
-    }
 
     /* ---------- Interactive Quotation Preview Modal ---------- */
     var currentPreviewMode = 'tax';

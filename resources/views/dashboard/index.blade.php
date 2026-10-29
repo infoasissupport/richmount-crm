@@ -25,7 +25,7 @@
                     <span>Quick add lead</span>
                 </a>
                 @can('quotes.create')
-                <a href="{{ route('quotations.builder') }}" class="pop-item" role="menuitem">
+                <a href="{{ route('quotations.index', ['create' => 1]) }}" class="pop-item" role="menuitem" onclick="event.preventDefault(); setQuickMenu(false); openCreateQuoteModal();">
                     <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-plus"/></svg>
                     <span>Create quotation</span>
                 </a>
@@ -181,6 +181,9 @@
 @canany(['leads.create', 'leads.edit'])
     @include('leads.partials.form-modal', ['returnTo' => url()->full()])
 @endcanany
+@can('quotes.create')
+    @include('quotations.partials.create-modal')
+@endcan
 @endsection
 
 @push('scripts')

@@ -81,6 +81,25 @@ class Quotation extends Model
     }
 
     /**
+     * Only each lead's latest quotation: newest created_at, the higher id breaking ties (ids follow insert order).
+     * The choice is made across all of the lead's (non-deleted) quotations before any other filter, so every
+     * field shown — number, total, date, status — comes from that one record. Quote numbers are not used:
+     * revisions keep their number (…_R1) and clones take the next free one.
+     */
+    public function scopeLatestPerLead(Builder $query): Builder
+    {
+        return $query->where($query->qualifyColumn('id'), function ($latest) {
+            $latest->select('q2.id')
+                ->from('quotations as q2')
+                ->whereColumn('q2.lead_id', 'quotations.lead_id')
+                ->whereNull('q2.deleted_at')
+                ->orderByDesc('q2.created_at')
+                ->orderByDesc('q2.id')
+                ->limit(1);
+        });
+    }
+
+    /**
      * Generate sequential quotation number.
      */
     public static function nextQuoteNumber(): string

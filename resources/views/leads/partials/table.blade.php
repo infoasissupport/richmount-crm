@@ -24,10 +24,9 @@
             </tr>
         </thead>
         @php
-            // same initials + colour hash as the prototype's avatar() helper
-            $initials = fn ($name) => strtoupper(collect(preg_split('/\s+/', trim((string) $name)))
-                ->filter(fn ($w) => preg_match('/^[A-Za-z]/', $w))->take(2)->map(fn ($w) => $w[0])->implode('')) ?: '—';
-            $avTone = fn ($name) => ['pink', 'blue', 'amber', 'purple', 'green', 'gray'][array_sum(array_map('ord', str_split((string) $name))) % 6];
+            // avatar initials + colour (App\Support\Avatar, shared with the Quotations table)
+            $initials = fn ($name) => \App\Support\Avatar::initials($name);
+            $avTone = fn ($name) => \App\Support\Avatar::tone($name);
         @endphp
         <tbody>
             @forelse($leads as $lead)

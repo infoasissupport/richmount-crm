@@ -7,14 +7,18 @@ use App\Http\Requests\Quotation\StoreQuotationRequest;
 use App\Models\Branch;
 use App\Models\Lead;
 use App\Models\Quotation;
+use App\Models\QuotationAttachment;
 use App\Models\User;
+use App\Services\DashboardService;
 use App\Services\PdfService;
 use App\Services\QuotationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class QuotationController extends Controller
 {
@@ -26,18 +30,24 @@ class QuotationController extends Controller
     /**
      * Display a listing of quotations with tabbed status filtering.
      */
-    public function index(Request $request): View|JsonResponse
+    public function index(Request $request): View|JsonResponse|StreamedResponse
     {
         $this->authorize('viewAny', Quotation::class);
         $user = $request->user();
 
         $tab = $request->get('tab', 'all');
 
-        $query = Quotation::accessibleBy($user)
+        // one row per lead/project: its latest quotation (Quotation::scopeLatestPerLead); access, filters,
+        // search, sorting and paging then apply to that list
+        $query = Quotation::latestPerLead()
+            ->accessibleBy($user)
             ->with(['lead.assignedEngineer', 'branch', 'preparedBy', 'project'])
             ->when($tab === 'awaiting_project', fn($q) => $q->where('status', 'awarded')->whereDoesntHave('project'))
             ->when($tab !== 'all' && $tab !== 'awaiting_project', fn($q) => $q->where('status', $tab))
             ->when($request->filled('branch_id'), fn($q) => $q->where('branch_id', $request->branch_id))
+            // date period by quote date, same options as Lead Management (default: all time)
+            ->when(in_array($request->get('period'), ['month', '7', '30', 'year'], true),
+                fn($q) => $q->where('quote_date', '>=', app(DashboardService::class)->periodStart($request->get('period'))->toDateString()))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $term = '%' . $request->search . '%';
                 $q->where(function ($sq) use ($term) {
@@ -46,7 +56,8 @@ class QuotationController extends Controller
                        ->orWhereHas('preparedBy', fn($pq) => $pq->where('name', 'like', $term));
                 });
             })
-            ->latest();
+            ->latest()
+            ->orderByDesc('quotations.id'); // stable order for rows created in the same second
 
         if ($request->get('export') === 'csv') {
             $exportQuotes = (clone $query)->get();
@@ -83,23 +94,22 @@ class QuotationController extends Controller
             'awarded_value' => (clone $baseKpiQuery)->where('status', 'awarded')->sum('grand_total'),
         ];
 
+        // status dropdown counts match the table: one (latest) quotation per lead/project
+        $latestQuery = Quotation::latestPerLead()->accessibleBy($user);
         $tabCounts = [
-            'all' => (clone $baseKpiQuery)->count(),
-            'draft' => (clone $baseKpiQuery)->where('status', 'draft')->count(),
-            'pending' => (clone $baseKpiQuery)->where('status', 'pending')->count(),
-            'approved' => (clone $baseKpiQuery)->where('status', 'approved')->count(),
-            'sent' => (clone $baseKpiQuery)->where('status', 'sent')->count(),
-            'awarded' => (clone $baseKpiQuery)->where('status', 'awarded')->count(),
-            'awaiting_project' => (clone $baseKpiQuery)->where('status', 'awarded')->whereDoesntHave('project')->count(),
+            'all' => (clone $latestQuery)->count(),
+            'draft' => (clone $latestQuery)->where('status', 'draft')->count(),
+            'pending' => (clone $latestQuery)->where('status', 'pending')->count(),
+            'approved' => (clone $latestQuery)->where('status', 'approved')->count(),
+            'rejected' => (clone $latestQuery)->where('status', 'rejected')->count(),
+            'sent' => (clone $latestQuery)->where('status', 'sent')->count(),
+            'awarded' => (clone $latestQuery)->where('status', 'awarded')->count(),
+            'awaiting_project' => (clone $latestQuery)->where('status', 'awarded')->whereDoesntHave('project')->count(),
         ];
 
         $quotations = $query->paginate(15);
         $branches = Branch::active()->get();
-        $availableLeads = Lead::accessibleBy($user)
-            ->whereNotIn('stage', ['awarded', 'lost'])
-            ->latest()
-            ->take(50)
-            ->get();
+        $availableLeads = Lead::accessibleBy($user)->quotable()->get();
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -108,7 +118,11 @@ class QuotationController extends Controller
             ]);
         }
 
-        return view('quotations.index', compact('quotations', 'kpis', 'branches', 'tab', 'availableLeads', 'tabCounts'));
+        $period = (string) $request->get('period', 'all');
+        // KPI tiles follow the table's period filter, with a trend vs the same period last year
+        $kpiCards = app(DashboardService::class)->getQuotationKpis($user, $period);
+
+        return view('quotations.index', compact('quotations', 'kpis', 'kpiCards', 'branches', 'tab', 'period', 'availableLeads', 'tabCounts'));
     }
 
     /**
@@ -140,11 +154,7 @@ class QuotationController extends Controller
         }
 
         // Available leads for switching if drafting a new quote or cloning
-        $availableLeads = Lead::accessibleBy($user)
-            ->whereNotIn('stage', ['awarded', 'lost'])
-            ->latest()
-            ->take(50)
-            ->get();
+        $availableLeads = Lead::accessibleBy($user)->quotable()->get();
 
         // Open workspace tabs (quotes in draft/pending)
         $openQuotes = Quotation::accessibleBy($user)
@@ -168,6 +178,7 @@ class QuotationController extends Controller
     {
         $lead = Lead::findOrFail($request->lead_id);
         $quote = $this->quotationService->createDraft($lead, $request->validated(), $request->user());
+        $submitted = $this->submitAfterSave($request, $quote);
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -178,7 +189,9 @@ class QuotationController extends Controller
         }
 
         return redirect()->route('quotations.builder', ['id' => $quote->id])
-            ->with('toast_success', "Quotation {$quote->quote_number} created as draft.");
+            ->with('toast_success', $submitted
+                ? "Quotation {$quote->quote_number} created and submitted for approval."
+                : "Quotation {$quote->quote_number} created as draft.");
     }
 
     /**
@@ -205,6 +218,7 @@ class QuotationController extends Controller
         $this->authorize('update', $quotation);
 
         $quote = $this->quotationService->autosaveDraft($quotation, $request->validated());
+        $submitted = $this->submitAfterSave($request, $quote);
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -215,7 +229,23 @@ class QuotationController extends Controller
         }
 
         return redirect()->route('quotations.builder', ['id' => $quote->id])
-            ->with('toast_success', "Quotation {$quote->quote_number} saved.");
+            ->with('toast_success', $submitted
+                ? "Quotation {$quote->quote_number} saved and submitted for approval."
+                : "Quotation {$quote->quote_number} saved.");
+    }
+
+    /**
+     * The builder's "Submit for Approval" saves the form first (store / update) and sends
+     * submit_for_approval=1, so unsaved edits are never lost; submits only when the policy allows it.
+     */
+    protected function submitAfterSave(Request $request, Quotation $quote): bool
+    {
+        if (! $request->boolean('submit_for_approval') || ! $request->user()->can('submit', $quote->fresh())) {
+            return false;
+        }
+        $this->quotationService->submitForApproval($quote, $request->user());
+
+        return true;
     }
 
     /**
@@ -384,6 +414,52 @@ class QuotationController extends Controller
 
         // ?inline=1 displays the PDF in the browser instead of downloading it
         return $this->pdfService->generateQuotationPdf($quotation, $outputType, $request->boolean('inline'));
+    }
+
+    /**
+     * Upload one line item photo from the builder; the row keeps the returned path until the quotation is saved.
+     */
+    public function uploadLinePhoto(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->can('quotes.create') || $request->user()->can('quotes.edit'), 403);
+
+        $request->validate([
+            'photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:5120'], // 5 MB
+        ]);
+
+        $path = $request->file('photo')->store('quotation_photos', 'public');
+
+        return response()->json([
+            'path' => $path,
+            'url' => asset('storage/' . $path),
+        ]);
+    }
+
+    /**
+     * Upload one quotation attachment from the builder; the Attachments card keeps the returned path,
+     * name and size until the quotation is saved (QuotationService::syncAttachments).
+     */
+    public function uploadAttachment(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->can('quotes.create') || $request->user()->can('quotes.edit'), 403);
+
+        $request->validate([
+            'file' => ['required', 'file', 'max:20480'], // 20 MB, any type (same limit as lead attachments)
+        ]);
+
+        $file = $request->file('file');
+        // any file is accepted, but it is stored under a random name with a harmless extension, so an uploaded
+        // .php / .html / .svg can never run or render from public/storage; the original name is kept for display
+        $ext = strtolower($file->getClientOriginalExtension());
+        $safeExt = in_array($ext, QuotationAttachment::SAFE_EXTENSIONS, true) ? $ext : 'bin';
+        $path = $file->storeAs('quotation_attachments', Str::random(40) . '.' . $safeExt, 'public');
+
+        return response()->json([
+            'path' => $path,
+            'name' => $file->getClientOriginalName(),
+            'size' => $file->getSize(),
+            'url' => asset('storage/' . $path),
+        ]);
     }
 
     /**

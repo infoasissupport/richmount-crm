@@ -10,8 +10,9 @@ class PdfService
 {
     /**
      * Generate quotation PDF according to branch format and output type.
+     * $inline shows it in the browser (e.g. a preview popup) instead of downloading it.
      */
-    public function generateQuotationPdf(Quotation $quotation, ?string $outputType = null): Response
+    public function generateQuotationPdf(Quotation $quotation, ?string $outputType = null, bool $inline = false): Response
     {
         $quotation->load(['lead', 'branch', 'preparedBy', 'lineItems']);
         $branchFormat = $quotation->branch->quote_format ?? 'format_1';
@@ -34,7 +35,7 @@ class PdfService
 
         $fileName = "Quotation_{$quotation->quote_number}_{$outputMode}.pdf";
 
-        return $pdf->download($fileName);
+        return $inline ? $pdf->stream($fileName) : $pdf->download($fileName);
     }
 
     /**

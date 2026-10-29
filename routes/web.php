@@ -66,6 +66,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/quotations/{quotation}/award', [QuotationController::class, 'award'])->name('quotations.award');
     Route::post('/quotations/{quotation}/reopen', [QuotationController::class, 'reopen'])->name('quotations.reopen');
     Route::get('/quotations/{quotation}/pdf', [QuotationController::class, 'downloadPdf'])->name('quotations.pdf');
+    Route::get('/quotations/{quotation}/document', [QuotationController::class, 'document'])->name('quotations.document');
     Route::resource('quotations', QuotationController::class)->except(['create', 'edit']);
 
     // Phase 3: Projects, PO, Work Completion, Invoicing

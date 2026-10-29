@@ -18,30 +18,10 @@
     </div>
     <div class="page-actions">
         @can('leads.edit')
-        <button class="btn btn-ghost" type="button" onclick="openEditLeadModal()">
+        <button class="btn btn-ghost" type="button" onclick="openEditLeadModal(editLeadData)">
             <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"/></svg>
             Edit Lead
         </button>
-        @endcan
-
-        @can('leads.assign')
-        <button class="btn btn-ghost" type="button" onclick="openAssignModal()">
-            <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg>
-            Assign Engineer
-        </button>
-        @endcan
-
-        @can('leads.delete')
-        @if(!$lead->latestQuotation)
-        <form action="{{ route('leads.destroy', $lead) }}" method="POST" style="display:inline;" onsubmit="return confirm('Delete lead {{ $lead->lead_number }} ({{ $lead->company_name }})?');">
-            @csrf
-            @method('DELETE')
-            <button class="btn btn-ghost" type="submit" style="color: #dc2626;">
-                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
-                Delete
-            </button>
-        </form>
-        @endif
         @endcan
 
         @can('quotes.create')
@@ -155,19 +135,33 @@
         </section>
     </div>
 
-    {{-- Quotations & Timeline Grid --}}
-    <div class="detail-grid">
+    {{-- Quotations & Timeline Grid (quotations table gets the wider column) --}}
+    <div class="detail-grid wide-first">
         <section class="card">
-            <header class="card-head">
+            <header class="card-head recent-head">
                 <h2>
                     <span class="head-ic">
                         <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-plus"/></svg>
                     </span>
                     Linked Quotations ({{ $lead->quotations->count() }})
                 </h2>
+                @if($lead->quotations->isNotEmpty())
+                <div class="head-actions">
+                    {{-- filters the rows below in the browser (a lead only has a handful of quotations) --}}
+                    <span class="select-wrap mini with-icon">
+                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-filter"/></svg>
+                        <select id="quoteStatusFilter" aria-label="Filter quotations by status">
+                            <option value="">All Status</option>
+                            @foreach(['draft' => 'Draft', 'pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'sent' => 'Sent', 'awarded' => 'Awarded'] as $val => $label)
+                                <option value="{{ $val }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </span>
+                </div>
+                @endif
             </header>
             <div class="table-wrap page">
-                <table class="table">
+                <table class="table" id="linkedQuotes">
                     <thead>
                         <tr>
                             <th>Quote No</th>
@@ -180,7 +174,7 @@
                     </thead>
                     <tbody>
                         @forelse($lead->quotations as $q)
-                            <tr>
+                            <tr data-status="{{ $q->status }}">
                                 <td class="strong">
                                     <a href="{{ route('quotations.builder', ['id' => $q->id]) }}" style="color: var(--primary);">
                                         {{ $q->quote_number }}
@@ -205,7 +199,21 @@
                                 <td class="num"><b>AED {{ number_format($q->grand_total, 2) }}</b></td>
                                 <td class="ta-c">
                                     <span class="row-actions">
-                                        <a class="act" href="{{ route('quotations.builder', ['id' => $q->id]) }}" title="Open Builder">
+                                        @php
+                                            // data for the quotation preview popup
+                                            $quotePreview = [
+                                                'number' => $q->quote_number,
+                                                'pdf' => route('quotations.pdf', $q),
+                                                'doc' => route('quotations.document', $q),
+                                                'edit' => route('quotations.builder', ['id' => $q->id]),
+                                                'output' => $q->output_type ?: 'tax',
+                                            ];
+                                        @endphp
+                                        <a class="act view" href="{{ route('quotations.builder', ['id' => $q->id, 'preview' => 1]) }}" title="View Quotation" aria-label="View {{ $q->quote_number }}"
+                                           data-quote-preview='@json($quotePreview)'>
+                                            <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"/></svg>
+                                        </a>
+                                        <a class="act edit" href="{{ route('quotations.builder', ['id' => $q->id]) }}" title="Open Builder" aria-label="Edit {{ $q->quote_number }}">
                                             <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"/></svg>
                                         </a>
                                         <a class="act" href="{{ route('quotations.pdf', $q) }}" title="Download PDF">
@@ -219,6 +227,9 @@
                                 <td colspan="6" class="empty">No quotations drafted yet.</td>
                             </tr>
                         @endforelse
+                        <tr class="filter-empty" hidden>
+                            <td colspan="6" class="empty">No quotations with this status.</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -250,124 +261,42 @@
     </div>
 </div>
 
-{{-- Edit Lead Modal --}}
+{{-- Edit Lead: the same popup as Lead Management and the dashboard --}}
 @can('leads.edit')
-<div class="modal-wrap" id="editLeadModal" style="display: none;" onclick="if(event.target === this) closeEditLeadModal()">
-    <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="editLeadModalTitle">
+    @include('leads.partials.form-modal', ['returnTo' => route('leads.show', $lead)])
+@endcan
+
+{{-- Quotation preview: the generated PDF shown inline, without leaving the lead page --}}
+<div class="modal-wrap" id="quotePreview" style="display: none;" onclick="if(event.target === this) closeQuotePreview()">
+    <div class="modal modal-lg quote-preview" role="dialog" aria-modal="true" aria-labelledby="quotePreviewTitle">
         <div class="modal-head">
             <div>
-                <h3 id="editLeadModalTitle">Edit Lead &bull; {{ $lead->lead_number }}</h3>
-                <p id="editLeadModalSub">{{ $lead->company_name }} &bull; {{ ucfirst($lead->stage) }}</p>
+                <h3 id="quotePreviewTitle">Quotation</h3>
             </div>
-            <button class="icon-btn" type="button" onclick="closeEditLeadModal()" aria-label="Close">
+            <button class="icon-btn" type="button" onclick="closeQuotePreview()" aria-label="Close">
                 <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
             </button>
         </div>
-        <form method="POST" action="{{ route('leads.update', $lead) }}">
-            @csrf
-            @method('PUT')
-
-            <div class="modal-body">
-                <div class="form-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
-                    <label class="field">
-                        <span class="field-label">Lead Number</span>
-                        <input value="{{ $lead->lead_number }}" readonly style="background: #F8F9FA;">
-                    </label>
-
-                    <label class="field">
-                        <span class="field-label">Lead Date</span>
-                        <input name="lead_date" type="date" value="{{ $lead->lead_date ? $lead->lead_date->format('Y-m-d') : date('Y-m-d') }}" required>
-                    </label>
-
-                    <div class="field" style="grid-column: span 2;">
-                        <label class="field-label">Client / Company Name <span style="color: var(--primary);">*</span></label>
-                        <input name="company_name" value="{{ $lead->company_name }}" required maxlength="120" placeholder="Client Name">
-                    </div>
-
-                    <label class="field">
-                        <span class="field-label">RFQ / PR Number</span>
-                        <input name="rfq_number" value="{{ $lead->rfq_number }}" maxlength="50" placeholder="RFQ / PR Number">
-                    </label>
-
-                    <label class="field">
-                        <span class="field-label">Project Subject <span style="color: var(--primary);">*</span></span>
-                        <input name="subject" value="{{ $lead->subject }}" required maxlength="150" placeholder="Project Subject">
-                    </label>
-
-                    <label class="field">
-                        <span class="field-label">Contact Person</span>
-                        <input name="contact_person" value="{{ $lead->contact_person }}" maxlength="100" placeholder="Contact Person">
-                    </label>
-
-                    <label class="field">
-                        <span class="field-label">Phone</span>
-                        <input name="phone" value="{{ $lead->phone }}" maxlength="30" placeholder="Phone Number">
-                    </label>
-
-                    <label class="field">
-                        <span class="field-label">Email</span>
-                        <input name="email" type="email" value="{{ $lead->email }}" maxlength="100" placeholder="Email">
-                    </label>
-
-                    <label class="field">
-                        <span class="field-label">Budget / Estimated Value (AED)</span>
-                        <input name="estimated_value" type="number" step="100" min="0" value="{{ $lead->estimated_value }}" placeholder="0">
-                    </label>
-
-                    <label class="field">
-                        <span class="field-label">Source <span style="color: var(--primary);">*</span></span>
-                        <span class="select-wrap">
-                            <select name="source" required>
-                                @foreach(['Website', 'Referral', 'Exhibition', 'Email', 'Phone', 'Social Media'] as $src)
-                                    <option value="{{ $src }}" {{ $lead->source === $src ? 'selected' : '' }}>{{ $src }}</option>
-                                @endforeach
-                            </select>
-                        </span>
-                    </label>
-
-                    <label class="field">
-                        <span class="field-label">Branch <span style="color: var(--primary);">*</span></span>
-                        <span class="select-wrap">
-                            <select name="branch_id" required>
-                                @foreach($branches as $b)
-                                    <option value="{{ $b->id }}" {{ $lead->branch_id === $b->id ? 'selected' : '' }}>{{ $b->name }} ({{ $b->code }})</option>
-                                @endforeach
-                            </select>
-                        </span>
-                    </label>
-
-                    <label class="field" style="grid-column: span 2;">
-                        <span class="field-label">Assigned Engineer <span style="color: var(--primary);">*</span></span>
-                        <span class="select-wrap">
-                            <select name="assigned_engineer_id" required>
-                                <option value="">Select Engineer</option>
-                                @foreach($engineers as $eng)
-                                    <option value="{{ $eng->id }}" {{ $lead->assigned_engineer_id == $eng->id ? 'selected' : '' }}>
-                                        {{ $eng->name }} ({{ $eng->branch?->short_name ?? 'All Branches' }})
-                                    </option>
-                                @endforeach
-                            </select>
-                        </span>
-                    </label>
-
-                    <label class="field" style="grid-column: span 2;">
-                        <span class="field-label">Notes &amp; Scope Requirements</span>
-                        <textarea name="notes" rows="3" maxlength="1000" placeholder="Notes & scope requirements">{{ $lead->notes }}</textarea>
-                    </label>
-                </div>
+        <div class="modal-body">
+            <div class="seg" role="radiogroup" aria-label="Quotation format">
+                <label><input type="radio" name="qpOutput" value="tax" checked><span>Total + Tax</span></label>
+                <label><input type="radio" name="qpOutput" value="notax"><span>Without Tax</span></label>
+                <label><input type="radio" name="qpOutput" value="tech"><span>Technical</span></label>
             </div>
-
-            <div class="modal-foot">
-                <button class="btn btn-ghost" type="button" onclick="closeEditLeadModal()">Cancel</button>
-                <button class="btn btn-primary" type="submit">
-                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
-                    Save Changes
-                </button>
-            </div>
-        </form>
+            <iframe id="quotePreviewFrame" class="quote-preview-frame" title="Quotation preview"></iframe>
+        </div>
+        <div class="modal-foot">
+            <a class="btn btn-ghost" id="quotePreviewDownload">
+                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-download"/></svg>
+                Download
+            </a>
+            <button class="btn btn-primary" type="button" onclick="document.getElementById('quotePreviewFrame').contentWindow.print()">
+                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-printer"/></svg>
+                Print
+            </button>
+        </div>
     </div>
 </div>
-@endcan
 
 {{-- Assign Engineer Modal --}}
 @can('leads.assign')
@@ -407,21 +336,15 @@
 </div>
 @endcan
 
+@php
+    $editLeadData = $lead->only(['id', 'lead_number', 'company_name', 'subject', 'contact_person', 'phone', 'email', 'rfq_number',
+        'branch_id', 'assigned_engineer_id', 'source', 'estimated_value', 'notes', 'stage'])
+        + ['lead_date' => $lead->lead_date?->format('Y-m-d')];
+@endphp
 <script>
-    function openEditLeadModal() {
-        var m = document.getElementById('editLeadModal');
-        if (m) {
-            m.style.display = 'flex';
-            m.classList.add('open');
-        }
-    }
-    function closeEditLeadModal() {
-        var m = document.getElementById('editLeadModal');
-        if (m) {
-            m.classList.remove('open');
-            m.style.display = 'none';
-        }
-    }
+    // fields for the shared Edit Lead popup (leads.partials.form-modal), same shape as the lead tables use
+    var editLeadData = @json($editLeadData);
+
     function openAssignModal() {
         var m = document.getElementById('assignModal');
         if (m) {
@@ -437,11 +360,60 @@
         }
     }
 
-    // ?open=edit / ?open=assign (links from the dashboard row menu) opens that modal on load
-    (function () {
+    // Linked Quotations status filter
+    document.getElementById('quoteStatusFilter')?.addEventListener('change', function () {
+        var status = this.value, shown = 0;
+        document.querySelectorAll('#linkedQuotes tbody tr[data-status]').forEach(function (row) {
+            var match = !status || row.dataset.status === status;
+            row.hidden = !match;
+            if (match) shown++;
+        });
+        document.querySelector('#linkedQuotes .filter-empty').hidden = shown > 0;
+    });
+
+    // Quotation preview popup: shows the quotation document page (builder preview design); the format tabs reload it,
+    // Download gets the PDF in the same format and Print prints the document shown
+    var quotePreviewData = null;
+    function showQuotePreview(output) {
+        var q = '?output=' + encodeURIComponent(output);
+        document.getElementById('quotePreviewFrame').src = quotePreviewData.doc + q;
+        document.getElementById('quotePreviewDownload').href = quotePreviewData.pdf + q;
+    }
+    function openQuotePreview(data) {
+        quotePreviewData = data;
+        document.getElementById('quotePreviewTitle').textContent = 'Preview • ' + data.number;
+        var output = ['tax', 'notax', 'tech'].indexOf(data.output) !== -1 ? data.output : 'tax';
+        document.querySelector('input[name="qpOutput"][value="' + output + '"]').checked = true;
+        showQuotePreview(output);
+        var m = document.getElementById('quotePreview');
+        m.style.display = 'flex';
+        m.classList.add('open');
+    }
+    function closeQuotePreview() {
+        var m = document.getElementById('quotePreview');
+        m.classList.remove('open');
+        m.style.display = 'none';
+        document.getElementById('quotePreviewFrame').src = 'about:blank';
+    }
+    document.addEventListener('click', function (e) {
+        var v = e.target.closest('[data-quote-preview]');
+        if (!v) return;
+        e.preventDefault();
+        openQuotePreview(JSON.parse(v.dataset.quotePreview));
+    });
+    document.addEventListener('change', function (e) {
+        if (e.target.name === 'qpOutput' && quotePreviewData) showQuotePreview(e.target.value);
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && document.getElementById('quotePreview').style.display !== 'none') closeQuotePreview();
+    });
+
+    // ?open=edit / ?open=assign (links from the lead row menus) opens that modal on load;
+    // waits for DOMContentLoaded because the Edit popup's script is pushed to the end of the page
+    document.addEventListener('DOMContentLoaded', function () {
         var open = new URLSearchParams(window.location.search).get('open');
-        if (open === 'edit') openEditLeadModal();
+        if (open === 'edit' && typeof openEditLeadModal === 'function') openEditLeadModal(editLeadData);
         if (open === 'assign') openAssignModal();
-    })();
+    });
 </script>
 @endsection

@@ -98,7 +98,7 @@
             @foreach($items as $idx => $item)
                 <tr>
                     <td>{{ sprintf('%02d', $idx + 1) }}</td>
-                    <td>{!! nl2br(e($item->description)) !!}</td>
+                    <td>{!! \App\Support\RichText::toHtml($item->description) !!}</td>
                     <td class="num">{{ (float) $item->quantity }}</td>
                     <td>{{ $item->unit }}</td>
                     @if($outputMode !== 'tech')

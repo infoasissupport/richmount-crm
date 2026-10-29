@@ -303,13 +303,39 @@ class DashboardService
     public function getLeadKpis(User $user, string $period = 'all'): array
     {
         $leadQuery = Lead::accessibleBy($user);
-        $quoteQuery = Quotation::accessibleBy($user);
-        $dates = fn ($a, $b) => [$a->toDateString(), $b->toDateString()];
 
         return [
             $this->periodKpi($period, 'leads', 'Total Leads', 'users',
                 fn ($a, $b) => (clone $leadQuery)->whereBetween('created_at', [$a, $b])->count(),
                 false, route('leads.index')),
+            ...$this->quotationStageKpis($user, $period),
+        ];
+    }
+
+    /**
+     * Quotations page KPIs (prototype set): quotation counts for the period, trend vs last year.
+     */
+    public function getQuotationKpis(User $user, string $period = 'all'): array
+    {
+        $quoteQuery = Quotation::accessibleBy($user);
+
+        return [
+            $this->periodKpi($period, 'quotes', 'Quotations', 'file-text',
+                fn ($a, $b) => (clone $quoteQuery)->whereBetween('quote_date', [$a->toDateString(), $b->toDateString()])->count(),
+                false, route('quotations.index')),
+            ...$this->quotationStageKpis($user, $period),
+        ];
+    }
+
+    /**
+     * Draft / Sent / Awarded quotation tiles shared by the Lead Management and Quotations pages.
+     */
+    protected function quotationStageKpis(User $user, string $period): array
+    {
+        $quoteQuery = Quotation::accessibleBy($user);
+        $dates = fn ($a, $b) => [$a->toDateString(), $b->toDateString()];
+
+        return [
             $this->periodKpi($period, 'draft_quotes', 'Draft Quotations', 'file-text',
                 fn ($a, $b) => (clone $quoteQuery)->whereIn('status', ['draft', 'pending', 'approved', 'rejected'])->whereBetween('quote_date', $dates($a, $b))->count(),
                 false, route('quotations.index', ['tab' => 'draft'])),

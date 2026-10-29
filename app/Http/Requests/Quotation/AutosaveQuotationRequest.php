@@ -24,6 +24,13 @@ class AutosaveQuotationRequest extends FormRequest
             'terms_conditions' => ['nullable', 'string'],
             'internal_notes' => ['nullable', 'string'],
             'items' => ['nullable', 'array'],
+            'items.*.photos' => ['nullable', 'array', 'max:3'],
+            'items.*.photos.*' => ['string', 'max:255'],
+            'attachments_sync' => ['nullable', 'boolean'],
+            'attachments' => ['nullable', 'array', 'max:30'],
+            'attachments.*.path' => ['required', 'string', 'max:255'],
+            'attachments.*.name' => ['nullable', 'string', 'max:255'],
+            'attachments.*.size' => ['nullable', 'integer', 'min:0'],
         ];
     }
 }

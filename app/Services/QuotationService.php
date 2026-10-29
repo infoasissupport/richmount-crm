@@ -4,9 +4,11 @@ namespace App\Services;
 
 use App\Models\Lead;
 use App\Models\Quotation;
+use App\Models\QuotationAttachment;
 use App\Models\QuotationHistory;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class QuotationService
 {
@@ -50,11 +52,13 @@ class QuotationService
                         'unit' => $item['unit'] ?? 'nos',
                         'unit_price' => $price,
                         'total_amount' => round($qty * $price, 2),
+                        'photos' => $this->linePhotos($item),
                     ]);
                 }
             }
 
             $quote->recalculateTotals();
+            $this->syncAttachments($quote, $data);
 
             // Lead stage update
             if ($lead->stage === 'new') {
@@ -111,14 +115,68 @@ class QuotationService
                         'unit' => $item['unit'] ?? 'nos',
                         'unit_price' => $price,
                         'total_amount' => round($qty * $price, 2),
+                        'photos' => $this->linePhotos($item),
                     ]);
                 }
             }
 
             $quotation->recalculateTotals();
+            $this->syncAttachments($quotation, $data);
 
             return $quotation;
         });
+    }
+
+    /**
+     * Make the quotation's attachments match the builder's Attachments card (only when the card sent its list,
+     * so other callers never wipe them). Matched by file path, so repeated autosaves don't duplicate rows;
+     * only files the attachment upload stored are accepted, and removed ones are deleted from disk.
+     */
+    protected function syncAttachments(Quotation $quotation, array $data): void
+    {
+        if (empty($data['attachments_sync'])) {
+            return;
+        }
+
+        $wanted = collect($data['attachments'] ?? [])
+            ->filter(fn ($a) => is_array($a) && QuotationAttachment::isUploadPath($a['path'] ?? null)
+                && Storage::disk('public')->exists($a['path']))
+            ->unique('path')
+            ->keyBy('path');
+
+        foreach ($quotation->attachments()->get() as $existing) {
+            if (! $wanted->has($existing->file_path)) {
+                Storage::disk('public')->delete($existing->file_path);
+                $existing->delete();
+            }
+        }
+
+        $have = $quotation->attachments()->pluck('file_path')->all();
+        foreach ($wanted->except($have) as $path => $a) {
+            $quotation->attachments()->create([
+                'file_name' => trim((string) ($a['name'] ?? '')) ?: basename($path),
+                'file_path' => $path,
+                'file_size' => Storage::disk('public')->size($path),
+            ]);
+        }
+    }
+
+    /**
+     * Line item photos sent back by the builder: only files the photo upload stored
+     * (quotation_photos/<random>.<image ext> on the public disk), at most 3.
+     */
+    protected function linePhotos(array $item): ?array
+    {
+        $photos = collect($item['photos'] ?? [])
+            ->filter(fn ($path) => is_string($path)
+                && preg_match('#^quotation_photos/[A-Za-z0-9]{20,64}\.(jpe?g|png|webp|gif)$#', $path)
+                && Storage::disk('public')->exists($path))
+            ->unique()
+            ->take(3)
+            ->values()
+            ->all();
+
+        return $photos ?: null;
     }
 
     /**

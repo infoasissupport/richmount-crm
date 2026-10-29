@@ -72,7 +72,7 @@
             @forelse($quote->lineItems as $i => $item)
                 <tr>
                     <td class="c">{{ $i + 1 }}</td>
-                    <td class="d">{{ $item->description ?: 'Item ' . ($i + 1) }}</td>
+                    <td class="d">{!! \App\Support\RichText::toHtml($item->description) ?: e('Item ' . ($i + 1)) !!}</td>
                     <td class="c">{{ (float) $item->quantity }}</td>
                     <td class="c">{{ $item->unit }}</td>
                     @if($priced)

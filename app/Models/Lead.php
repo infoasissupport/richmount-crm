@@ -47,6 +47,14 @@ class Lead extends Model
     }
 
     /**
+     * Leads offered in the "Create Quotation" lead picker: not yet awarded or lost, newest first (50).
+     */
+    public function scopeQuotable(Builder $query): Builder
+    {
+        return $query->whereNotIn('stage', ['awarded', 'lost'])->latest()->take(50);
+    }
+
+    /**
      * Scope to enforce role visibility rules.
      * The engineer sees only assigned leads. When marked Sent/Closed, it disappears from engineer view.
      */
@@ -115,9 +123,12 @@ class Lead extends Model
         return $this->hasMany(Quotation::class);
     }
 
+    /**
+     * The lead's current quotation — same rule as Quotation::scopeLatestPerLead (newest created_at, then id).
+     */
     public function latestQuotation(): HasOne
     {
-        return $this->hasOne(Quotation::class)->latestOfMany();
+        return $this->hasOne(Quotation::class)->latestOfMany(['created_at', 'id']);
     }
 
     public function attachments(): HasMany

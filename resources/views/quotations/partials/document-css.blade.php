@@ -18,7 +18,7 @@
 .qd-items td { font-size: 11px; }
 .qd-items .c { text-align: center; }
 .qd-items .r { text-align: right; font-weight: 700; white-space: nowrap; }
-.qd-items td.d { width: 45%; white-space: pre-line; }
+.qd-items td.d { width: 45%; } /* rich text from the line item editor; line breaks are <br> */
 .qd-items .sum td { background: #DDF3E3; font-weight: 700; }
 .qd-items .grand td { background: #C9EDD3; font-weight: 700; }
 .qd-items .words td { background: #DDF3E3; text-align: center; font-weight: 700; font-size: 11px; }

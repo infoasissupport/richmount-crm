@@ -33,14 +33,10 @@
                     <svg class="ic nav-chev" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-right"/></svg>
                 </a>
                 <div class="nav-sub">
-                    <a class="nav-subitem {{ request()->routeIs('leads.index') && !request()->has('new') && !request()->has('assign') ? 'active' : '' }}" href="{{ route('leads.index') }}">All Leads</a>
+                    <a class="nav-subitem {{ request()->routeIs('leads.index') && !request()->has('new') ? 'active' : '' }}" href="{{ route('leads.index') }}">All Leads</a>
                     @can('leads.create')
                     <a class="nav-subitem {{ request()->routeIs('leads.index') && request()->get('new') == 1 ? 'active' : '' }}" href="{{ route('leads.index', ['new' => 1]) }}">Add Lead</a>
                     @endcan
-                    @can('leads.assign')
-                    <a class="nav-subitem {{ request()->routeIs('leads.index') && request()->get('assign') == 1 ? 'active' : '' }}" href="{{ route('leads.index', ['assign' => 1]) }}">Assign Engineer</a>
-                    @endcan
-                    <a class="nav-subitem" href="{{ url('/#pipeline') }}">Lead Pipeline</a>
                 </div>
             </div>
             @endcan

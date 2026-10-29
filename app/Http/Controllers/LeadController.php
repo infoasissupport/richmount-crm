@@ -10,28 +10,40 @@ use App\Models\Lead;
 use App\Models\LeadActivity;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\DashboardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LeadController extends Controller
 {
     /**
      * Display a listing of leads with server-side filters and KPIs.
      */
-    public function index(Request $request): View|JsonResponse
+    public function index(Request $request): View|JsonResponse|StreamedResponse
     {
         $this->authorize('viewAny', Lead::class);
         $user = $request->user();
 
         $query = Lead::accessibleBy($user)
-            ->with(['branch', 'assignedEngineer', 'latestQuotation'])
+            ->with(['branch', 'assignedEngineer', 'latestQuotation', 'projects'])
             ->when($request->filled('branch_id'), fn($q) => $q->where('branch_id', $request->branch_id))
             ->when($request->filled('status'), fn($q) => $q->where('status', $request->status))
             ->when($request->filled('stage'), fn($q) => $q->where('stage', $request->stage))
             ->when($request->filled('department'), fn($q) => $q->where('department', $request->department))
             ->when($request->filled('engineer_id'), fn($q) => $q->where('assigned_engineer_id', $request->engineer_id))
+            // date period, same options as the dashboard's Recent Leads (default: all time)
+            ->when(in_array($request->get('period'), ['month', '7', '30', 'year'], true), function ($q) use ($request) {
+                $from = match ($request->get('period')) {
+                    '7' => now()->subDays(7),
+                    '30' => now()->subDays(30),
+                    'year' => now()->startOfYear(),
+                    default => now()->startOfMonth(),
+                };
+                $q->where('created_at', '>=', $from);
+            })
             ->when($request->filled('search'), function ($q) use ($request) {
                 $term = '%' . $request->search . '%';
                 $q->where(function ($sq) use ($term) {
@@ -88,7 +100,10 @@ class LeadController extends Controller
             ]);
         }
 
-        return view('leads.index', compact('leads', 'kpis', 'branches', 'engineers', 'nextLeadNumber', 'clientNames'));
+        // KPI tiles follow the table's period filter, with a trend vs the same period last year
+        $kpiCards = app(DashboardService::class)->getLeadKpis($user, (string) $request->get('period', 'all'));
+
+        return view('leads.index', compact('leads', 'kpis', 'kpiCards', 'branches', 'engineers', 'nextLeadNumber', 'clientNames'));
     }
 
     /**
@@ -167,7 +182,10 @@ class LeadController extends Controller
             return response()->json($lead);
         }
 
-        return view('leads.show', compact('lead', 'engineers', 'branches'));
+        // client suggestions for the shared Edit Lead popup
+        $clientNames = Lead::accessibleBy(request()->user())->distinct()->pluck('company_name')->filter()->values();
+
+        return view('leads.show', compact('lead', 'engineers', 'branches', 'clientNames'));
     }
 
     /**
@@ -266,11 +284,15 @@ class LeadController extends Controller
         $request->validate([
             'assignments' => ['required', 'array'],
             'assignments.*.lead_id' => ['required', 'exists:leads,id'],
-            'assignments.*.engineer_id' => ['required', 'exists:users,id'],
+            // rows left on "Select Engineer" are skipped rather than failing the whole save
+            'assignments.*.engineer_id' => ['nullable', 'exists:users,id'],
         ]);
 
         $count = 0;
         foreach ($request->assignments as $item) {
+            if (empty($item['engineer_id'])) {
+                continue;
+            }
             $lead = Lead::find($item['lead_id']);
             if ($lead && $lead->assigned_engineer_id !== (int) $item['engineer_id']) {
                 $lead->update(['assigned_engineer_id' => $item['engineer_id']]);

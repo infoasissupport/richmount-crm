@@ -382,6 +382,23 @@ class QuotationController extends Controller
 
         $outputType = $request->get('output', $quotation->output_type);
 
-        return $this->pdfService->generateQuotationPdf($quotation, $outputType);
+        // ?inline=1 displays the PDF in the browser instead of downloading it
+        return $this->pdfService->generateQuotationPdf($quotation, $outputType, $request->boolean('inline'));
+    }
+
+    /**
+     * The quotation as a printable web page, in the builder preview's design (lead page preview popup).
+     */
+    public function document(Quotation $quotation, Request $request): View
+    {
+        $this->authorize('view', $quotation);
+
+        $mode = in_array($request->get('output'), ['tax', 'notax', 'tech'], true)
+            ? $request->get('output')
+            : ($quotation->output_type ?: 'tax');
+
+        $quotation->load(['lead.assignedEngineer', 'lineItems']);
+
+        return view('quotations.document', ['quote' => $quotation, 'mode' => $mode]);
     }
 }

@@ -232,10 +232,11 @@ position: absolute;
 }
 .badge.zero { display: none; }
 
-.crumbs { display: flex; align-items: center; gap: 10px; font-size: 14px; white-space: nowrap; }
+/* min-width 0: the breadcrumb gives way (with "…") instead of pushing the user menu off-screen */
+.crumbs { display: flex; align-items: center; gap: 10px; font-size: 14px; white-space: nowrap; min-width: 0; overflow: hidden; }
 .crumb-home { width: 32px; height: 32px; border-radius: 8px; background: var(--primary); display: grid; place-items: center; }
 .crumb { color: #fff; font-weight: 500; }
-.crumb.current { color: #D7DADE; font-weight: 400; }
+.crumb.current { color: #D7DADE; font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
 .crumbs .sep { width: 14px; height: 14px; color: #8D939B; }
 
 .gsearch {
@@ -286,7 +287,7 @@ background: rgba(255, 255, 255, .08);
 .tb-user { display: flex; align-items: center; gap: 10px; padding: 4px 6px 4px 8px; margin-left: 8px; border-radius: 10px; text-align: left; }
 .tb-user:hover { background: rgba(255, 255, 255, .06); }
 .tb-user img { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #2E3338; }
-.tb-user-text strong { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.tb-user-text strong { display: block; text-transform: capitalize; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .tb-user-text small { display: block; font-size: 12px; color: #A9AEB5; white-space: nowrap; }
 .tb-user > .ic { margin-left: 12px; color: #C9CDD2; }
 .only-mobile { display: none; }
@@ -302,15 +303,15 @@ background: rgba(255, 255, 255, .08);
   display: flex; align-items:center; justify-content: space-between;
    gap: 10px; 
 }
-.page-head h1 { font-size: 28px; font-weight: 800; letter-spacing: -.3px; line-height: 1.15; }
+.page-head h1 { text-transform: capitalize; font-size: 28px; font-weight: 800; letter-spacing: -.3px; line-height: 1.15; }
 .page-head p { color: var(--text-2); margin-top: 4px; font-size: 13.5px; }
-.page-actions { display: flex; align-items: stretch; gap: 14px; }
+.page-actions { display: flex; align-items: stretch; gap: 7px; }
 
 
 /* ---------- Buttons ---------- */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  height: 36px; padding: 0 16px;
+  height: 40px; padding: 0 16px;
   border-radius: 8px;
   font-size: 13px; font-weight: 600;
   white-space: nowrap;
@@ -455,8 +456,10 @@ a.pop-item { text-decoration: none; }
 .f-actions .icon-btn { width: 38px; height: 38px; }
 
 /* ---------- KPIs ---------- */
-.kpi-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); 
+.kpi-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px; }
+/* four-card rows (Lead Management etc.): 4 across down to tablet, 2 at ≤768px, 1 at ≤560px (media rules below) */
+.kpi-grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .kpi {
   position: relative; isolation: isolate; overflow: hidden;
   display: flex; flex-direction: column;
@@ -748,7 +751,7 @@ a.pop-item { text-decoration: none; }
   .bottom-grid.fill { grid-template-rows: minmax(0, 1fr); align-items: stretch; }
   .card.fill, .fill > .card { display: flex; flex-direction: column; min-height: 0; }
   .fill > .card { height: 100%; }
-  .card.fill > *, .fill > .card > * { flex: none; }
+
   .card.fill > .table-wrap, .fill > .card > .table-wrap { flex: 1 1 0; min-height: 0; max-height: none; }
 }
 .page-foot {
@@ -830,6 +833,11 @@ a.pop-item { text-decoration: none; }
 .modal form.form-grid { display: flex !important; flex-direction: column !important; gap: 0 !important; }
 .modal-sm { max-width: 420px; }
 .modal-lg { max-width: 760px; }
+/* quotation preview popup (lead page): format tabs above an inline PDF that fills the popup */
+.quote-preview { height: calc(100vh - 40px); }
+.quote-preview .modal-body { display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0; }
+.quote-preview .seg { align-self: flex-start; }
+.quote-preview-frame { flex: 1; width: 100%; min-height: 0; border: 1px solid var(--line); border-radius: 8px; background: #F7F8FA; }
 .modal-xl { max-width: 1100px; }
 .modal-head, .drawer-head { display: flex; align-items: flex-start;
    justify-content: space-between; gap: 12px; padding: 10px 20px 10px; border-bottom: 1px solid var(--line); }
@@ -919,10 +927,10 @@ a.pop-item { text-decoration: none; }
 .stepper li.done::before, .stepper li.current::before { background: var(--primary); }
 .stepper li.current span { border-color: var(--primary); color: var(--primary); box-shadow: 0 0 0 4px var(--primary-soft); }
 .stepper li.current { color: var(--primary); font-weight: 600; }
-.kv { display: grid; grid-template-columns: 140px 1fr; gap: 0; margin: 0; border: 1px solid var(--line-soft); border-radius: 10px; overflow: hidden; }
+.kv { display: grid; grid-template-columns: 170px 1fr; gap: 0; margin: 0; border: 1px solid var(--line-soft); border-radius: 10px; overflow: hidden; }
 .kv dt, .kv dd { margin: 0; padding: 9px 12px; font-size: 13px; border-bottom: 1px solid var(--line-soft); }
 .kv dt { color: var(--muted); background: #FAFAFB; }
-.kv dd { color: var(--text); font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.kv dd { text-transform: capitalize; color: var(--text); font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
 .kv dt:nth-last-child(2), .kv dd:last-child { border-bottom: 0; }
 .dr-section { margin-top: 18px; }
 .dr-section h5 { font-size: 13px; margin: 0 0 8px; color: var(--text-2); }
@@ -943,6 +951,7 @@ a.pop-item { text-decoration: none; }
 .recent-search { flex: 1 1 200px; max-width: 320px; min-width: 180px; height: 38px; background: #fff; border-radius: 8px; }
 .recent-search input { font-size: 13px; }
 .recent-head .head-actions { flex: 1 1 auto; min-width: 0; justify-content: flex-end; gap: 10px; }
+.recent-head h2 { white-space: nowrap; } /* the filters drop below the title rather than squeezing it onto two lines */
 /* filters stay inside the card: the search shrinks first, then the dropdowns wrap to a new row */
 .recent-filters { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
 .recent-head .select-wrap.mini select, .pipeline .card-head .select-wrap.mini select { height: 38px; font-size: 13px; font-weight: 500; color: var(--text); border-radius: 8px; background-color: #fff; min-width: 140px; }
@@ -1069,7 +1078,7 @@ body.compact .content { gap: 12px; }
   .table.cards tr:has(td.empty) { display: block; grid-column: 1 / -1; }
   /* Recent Leads: header wraps, rows become cards */
   
-  .recent-head { flex-wrap: wrap; }
+  .recent-head { flex-wrap:initial; }
   .recent-head .head-actions { flex: 1 1 100%; flex-wrap: wrap; gap: 10px; }
 
   .recent-wrap { border: 0; overflow: visible; }
@@ -1145,7 +1154,7 @@ body.compact .content { gap: 12px; }
   .filter-form { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .f-range { grid-column: span 2; }
   .f-actions { grid-column: auto; }
-  .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
   .crumbs .crumb, .crumbs .sep { display: none; }
   .gsearch {
     position: absolute; top: var(--topbar-h); left: 0; right: 0;
@@ -1163,6 +1172,9 @@ body.compact .content { gap: 12px; }
 }
 
 @media (max-width: 768px) {
+  .kpi-grid.four{
+    grid-template-columns: 1fr 1fr;
+  }
   .content { padding: 16px; }
   .page-foot { margin: auto -16px -16px; padding: 10px 16px; }
   .page-head h1 { font-size: 24px; }
@@ -1212,7 +1224,6 @@ a.link-btn:hover { text-decoration: underline; }
 a.crumb:hover { text-decoration: underline; }
 .crumb-home { color: #fff; }
 
-.kpi-grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
 .donut-legend a { width: 100%; display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--text-2); padding: 4px 6px; border-radius: 6px; }
 .donut-legend a:hover { background: var(--line-soft); color: var(--text); }
@@ -1254,7 +1265,6 @@ a.pager-num, .pager-btns a.btn { text-decoration: none; }
 .matrix tbody tr.group:hover td { background: var(--line-soft); }
 
 @media (max-width: 1280px) {
-  .kpi-grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .report-grid.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 1100px) {
@@ -1264,8 +1274,35 @@ a.pager-num, .pager-btns a.btn { text-decoration: none; }
   .report-grid.cols-4 { grid-template-columns: minmax(0, 1fr); }
   .page-actions .btn-lg { flex: 1; }
 }
+
+/* page header on tablets/phones: title on its own row, the actions become a full-width bar of equal buttons */
+@media (max-width: 768px) {
+  .page-head { flex-wrap: wrap; row-gap: 12px; }
+  .page-head > :first-child { flex: 1 1 100%; }
+  .page-head .page-actions { flex: 1 1 100%; flex-wrap: nowrap; gap: 8px; }
+  .page-head .page-actions > .btn, .page-head .page-actions > .split-btn { flex: 1 1 0; min-width: 0; }
+  .page-head .page-actions > .btn { justify-content: center; white-space: nowrap; }
+}
+/* phones: the main action gets a full-width row on top, the others share the row below */
 @media (max-width: 560px) {
-  .kpi-grid.four { grid-template-columns: minmax(0, 1fr); }
+  .page-head .page-actions { flex-wrap: wrap; }
+  .page-head .page-actions > .btn-primary, .page-head .page-actions > .split-btn { order: -1; flex-basis: 100%; }
+}
+
+/* phones: the list title gets its own row and the filters go full width below it */
+@media (max-width: 600px) {
+  .recent-head { flex-wrap: wrap; }
+}
+/* tablets (card layout): title on its own row, then a full-width filter bar —
+   search fills the space, status and date keep a fixed width on the right */
+@media (min-width: 601px) and (max-width: 1199px) {
+  .recent-head { flex-wrap: wrap; row-gap: 12px; margin-bottom: 14px; }
+  .recent-head h2 { flex: 1 1 100%; }
+  .recent-head .head-actions { flex: 1 1 100%; }
+  .recent-head .recent-filters { flex-wrap: nowrap; justify-content: flex-start; gap: 10px; }
+  .recent-head .recent-search { flex: 1 1 auto; max-width: none; }
+  .recent-head .select-wrap.mini { flex: 0 1 170px; min-width: 140px; }
+  .recent-head .select-wrap.mini select { width: 100%; }
 }
 
 /* =========================================================
@@ -1294,6 +1331,11 @@ a.pager-num, .pager-btns a.btn { text-decoration: none; }
 
 /* detail grids */
 .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.detail-grid.wide-first { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } /* e.g. a table beside a timeline */
+@media (min-width: 1101px) and (max-width: 1365px) {
+  .detail-grid.wide-first { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); } /* tight beside the sidebar: the table needs ~650px */
+  .detail-grid.wide-first .table th, .detail-grid.wide-first .table td { padding-left: 6px; padding-right: 6px; }
+}
 .kv.cols-2 { grid-template-columns: 140px 1fr 140px 1fr; }
 .kv a { color: var(--primary); font-weight: 600; text-decoration: none; }
 .kv a:hover { text-decoration: underline; }
@@ -1405,7 +1447,7 @@ a.pager-num, .pager-btns a.btn { text-decoration: none; }
   .kv.cols-2 { grid-template-columns: 130px 1fr; }
 }
 @media (max-width: 1100px) {
-  .detail-grid { grid-template-columns: minmax(0, 1fr); }
+  .detail-grid, .detail-grid.wide-first { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 768px) {
   .form-grid.three, .doc-grid { grid-template-columns: minmax(0, 1fr); }
@@ -1477,3 +1519,33 @@ a.pager-num, .pager-btns a.btn { text-decoration: none; }
 .matrix code { display: inline; }
 @media (max-width: 1100px) { .perm-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .perm-list { grid-template-columns: minmax(0, 1fr); } }
+
+
+/* lead table (dashboard + Lead Management) on desktop: long names wrap onto a second line instead of
+   widening the table past its card; 1200–1599px is tight beside the sidebar, so it also goes compact
+   (below 1200px it switches to the card layout) */
+@media (min-width: 1200px) {
+  #recentTable .cell-text { white-space: normal; max-width: 160px; overflow-wrap: break-word; }
+}
+/* top bar at 1200–1365px: the search box gives way first (and drops its Ctrl+K hint) so the breadcrumb stays readable */
+@media (min-width: 1200px) and (max-width: 1365px) {
+  .gsearch { flex-shrink: 10; min-width: 140px; }
+  .gsearch kbd { display: none; }
+}
+@media (min-width: 1200px) and (max-width: 1599px) {
+  #recentTable th, #recentTable td { padding-left: 6px; padding-right: 6px; }
+  #recentTable th:first-child, #recentTable td:first-child { padding-left: 10px; }
+  #recentTable .avatar.sm { width: 28px; height: 28px; font-size: 11px; }
+  #recentTable .cell-who { gap: 8px; }
+  #recentTable .cell-text { max-width: 130px; }
+  #recentTable .row-actions { gap: 5px; }
+  #recentTable .act { width: 30px; height: 30px; }
+  #recentTable .cell-date { gap: 6px; }
+}
+/* tightest desktop range: smaller text and no Sl No column so long names still fit without splitting words */
+@media (min-width: 1200px) and (max-width: 1279px) {
+  #recentTable { font-size: 13px; }
+  #recentTable th:first-child, #recentTable td.rl-no { display: none; }
+  #recentTable th:nth-child(2), #recentTable td.rl-leadno { padding-left: 12px; }
+  #recentTable .cell-date .ic { display: none; }
+}

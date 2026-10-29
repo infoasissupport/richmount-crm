@@ -10,6 +10,8 @@ use App\Models\Quotation;
 use App\Models\User;
 use App\Models\WorkCompletionCertificate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ProjectTest extends TestCase
@@ -99,6 +101,122 @@ class ProjectTest extends TestCase
             'quotation_id' => $quote->id,
             'client_name' => $quote->lead->company_name,
         ]);
+    }
+
+    public function test_awarded_quotation_builder_renders_prefilled_create_project_modal(): void
+    {
+        $superAdmin = User::where('role_name', 'super_admin')->first();
+        $this->actingAs($superAdmin);
+
+        $quote = Quotation::where('status', 'awarded')->firstOrFail();
+        $quote->project?->delete();
+        $quote->refresh();
+
+        $response = $this->get(route('quotations.builder', ['id' => $quote->id]));
+
+        $response->assertOk();
+        $response->assertSee('onclick="openCreateProjectModal()"', false);
+        $response->assertSee('id="createProjectModal"', false);
+        $response->assertSee(route('projects.store'), false);
+        $response->assertSee('name="quotation_id" value="'.$quote->id.'"', false);
+        $response->assertSee('name="client_po_number"', false);
+        $response->assertSee('name="project_documents[]"', false);
+        $response->assertSee('id="projectAuthorizationStatus"', false);
+        $response->assertSee('Purchase Order received');
+        $response->assertSee('Approved by email — PO to follow');
+        $response->assertSee('Not received yet (PO Pending)');
+        $response->assertSee('Create Project');
+    }
+
+    public function test_project_created_from_awarded_quote_saves_po_and_project_documents(): void
+    {
+        Storage::fake('public');
+        $accountant = User::where('role_name', 'accountant')->first();
+        $this->actingAs($accountant);
+
+        $quote = Quotation::where('status', 'awarded')->firstOrFail();
+        $quote->project?->delete();
+        $quote->refresh();
+        $otherBranchId = Branch::where('id', '!=', $quote->branch_id)->value('id');
+        $poFile = UploadedFile::fake()->createWithContent('purchase-order.pdf', '%PDF-1.4 purchase order');
+        $projectDocument = UploadedFile::fake()->createWithContent('scope.pdf', '%PDF-1.4 project scope');
+
+        $response = $this->post(route('projects.store'), [
+            'name' => $quote->lead->subject,
+            'client_name' => 'Untrusted customer name',
+            'branch_id' => $otherBranchId,
+            'lead_id' => Lead::where('id', '!=', $quote->lead_id)->value('id'),
+            'quotation_id' => $quote->id,
+            'contract_value' => 1,
+            'start_date' => '2026-10-29',
+            'client_po_number' => 'PO-TEST-2026',
+            'client_po_date' => '2026-10-29',
+            'client_po_amount' => $quote->subtotal,
+            'po_file' => $poFile,
+            'project_documents' => [$projectDocument],
+            'description' => 'Project scope from awarded quotation.',
+        ]);
+
+        $response->assertRedirect();
+        $project = Project::where('quotation_id', $quote->id)->firstOrFail();
+        $this->assertSame('open', $project->status);
+        $this->assertSame('PO-TEST-2026', $project->client_po_number);
+        $this->assertSame($quote->lead->company_name, $project->client_name);
+        $this->assertSame($quote->branch_id, $project->branch_id);
+        $this->assertSame($quote->lead_id, $project->lead_id);
+        $this->assertSame((float) $quote->subtotal, (float) $project->contract_value);
+        $this->assertSame(2, $project->documents()->count());
+        Storage::disk('public')->assertExists($project->client_po_file);
+        Storage::disk('public')->assertExists($project->documents()->where('kind', 'general')->value('file_path'));
+    }
+
+    public function test_project_cannot_be_created_from_a_non_awarded_quotation(): void
+    {
+        $accountant = User::where('role_name', 'accountant')->first();
+        $this->actingAs($accountant);
+
+        $quote = Quotation::where('status', 'pending')->firstOrFail();
+
+        $response = $this->post(route('projects.store'), [
+            'name' => 'Project from pending quotation',
+            'client_name' => $quote->lead->company_name,
+            'branch_id' => $quote->branch_id,
+            'lead_id' => $quote->lead_id,
+            'quotation_id' => $quote->id,
+            'contract_value' => $quote->subtotal,
+        ]);
+
+        $response->assertSessionHasErrors('quotation_id');
+        $this->assertDatabaseMissing('projects', ['quotation_id' => $quote->id]);
+    }
+
+    public function test_project_without_purchase_order_is_created_as_po_pending(): void
+    {
+        $accountant = User::where('role_name', 'accountant')->first();
+        $this->actingAs($accountant);
+
+        $quote = Quotation::where('status', 'awarded')->firstOrFail();
+        $quote->project?->delete();
+
+        $response = $this->post(route('projects.store'), [
+            'name' => $quote->lead->subject,
+            'client_name' => $quote->lead->company_name,
+            'branch_id' => $quote->branch_id,
+            'lead_id' => $quote->lead_id,
+            'quotation_id' => $quote->id,
+            'contract_value' => $quote->subtotal,
+            'start_date' => '2026-10-29',
+            'client_po_number' => '',
+            'client_po_date' => '2026-10-29',
+            'client_po_amount' => '',
+        ]);
+
+        $response->assertRedirect();
+        $project = Project::where('quotation_id', $quote->id)->firstOrFail();
+        $this->assertSame('popending', $project->status);
+        $this->assertSame('0.00', $project->client_po_amount);
+        $this->assertNull($project->client_po_number);
+        $this->assertNull($project->client_po_date);
     }
 
     public function test_record_client_po_transitions_project_to_open(): void

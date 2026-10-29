@@ -8,10 +8,10 @@
     </a>
 
     <div class="sidebar-inner">
-        <label class="side-search">
+        <!-- <label class="side-search">
             <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg>
             <input type="search" id="menuSearch" placeholder="Search menu..." aria-label="Search menu">
-        </label>
+        </label> -->
 
         <nav class="nav" id="nav">
             {{-- Dashboard --}}

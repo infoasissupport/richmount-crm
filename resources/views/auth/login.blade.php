@@ -39,7 +39,12 @@
 
         <label class="field">
             <span class="field-label">Password</span>
-            <input type="password" name="password" id="loginPassword" value="" placeholder="Enter your password" required autocomplete="current-password">
+            <span class="password-input-wrap">
+                <input type="password" name="password" id="loginPassword" value="" placeholder="Enter your password" required autocomplete="current-password">
+                <button class="password-toggle" type="button" data-password-toggle="loginPassword" aria-label="Show password" aria-pressed="false">
+                    <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"/><path class="password-toggle-slash" d="m4 4 16 16"/></svg>
+                </button>
+            </span>
         </label>
 
         <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
@@ -60,5 +65,17 @@
 </div>
 
 <script src="{{ asset('js/icons.js') }}"></script>
+<script>
+    document.querySelectorAll('[data-password-toggle]').forEach((toggle) => {
+        const password = document.getElementById(toggle.dataset.passwordToggle);
+
+        toggle.addEventListener('click', () => {
+            const isVisible = password.type === 'text';
+            password.type = isVisible ? 'password' : 'text';
+            toggle.setAttribute('aria-pressed', String(!isVisible));
+            toggle.setAttribute('aria-label', isVisible ? 'Show password' : 'Hide password');
+        });
+    });
+</script>
 </body>
 </html>

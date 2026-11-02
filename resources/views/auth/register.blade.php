@@ -57,12 +57,22 @@
 
         <label class="field">
             <span class="field-label">Password *</span>
-            <input type="password" name="password" id="regPassword" placeholder="Min. 6 characters" required autocomplete="new-password">
+            <span class="password-input-wrap">
+                <input type="password" name="password" id="regPassword" placeholder="Min. 6 characters" required autocomplete="new-password">
+                <button class="password-toggle" type="button" data-password-toggle="regPassword" aria-label="Show password" aria-pressed="false">
+                    <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"/><path class="password-toggle-slash" d="m4 4 16 16"/></svg>
+                </button>
+            </span>
         </label>
 
         <label class="field">
             <span class="field-label">Confirm Password *</span>
-            <input type="password" name="password_confirmation" id="regPasswordConfirmation" placeholder="Re-enter password" required autocomplete="new-password">
+            <span class="password-input-wrap">
+                <input type="password" name="password_confirmation" id="regPasswordConfirmation" placeholder="Re-enter password" required autocomplete="new-password">
+                <button class="password-toggle" type="button" data-password-toggle="regPasswordConfirmation" aria-label="Show password" aria-pressed="false">
+                    <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"/><path class="password-toggle-slash" d="m4 4 16 16"/></svg>
+                </button>
+            </span>
         </label>
 
         <button class="btn btn-primary btn-block btn-lg" type="submit" style="margin-top: 6px;">Create Super Admin Account</button>
@@ -75,5 +85,17 @@
 </div>
 
 <script src="{{ asset('js/icons.js') }}"></script>
+<script>
+    document.querySelectorAll('[data-password-toggle]').forEach((toggle) => {
+        const password = document.getElementById(toggle.dataset.passwordToggle);
+
+        toggle.addEventListener('click', () => {
+            const isVisible = password.type === 'text';
+            password.type = isVisible ? 'password' : 'text';
+            toggle.setAttribute('aria-pressed', String(!isVisible));
+            toggle.setAttribute('aria-label', isVisible ? 'Show password' : 'Hide password');
+        });
+    });
+</script>
 </body>
 </html>

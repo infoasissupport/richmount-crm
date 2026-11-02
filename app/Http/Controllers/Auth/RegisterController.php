@@ -10,7 +10,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
 class RegisterController extends Controller
@@ -50,7 +49,7 @@ class RegisterController extends Controller
             'password' => Hash::make($validated['password']),
             'phone' => $validated['phone'] ?? null,
             'role_name' => 'super_admin',
-            'branch_id' => $defaultBranch?->id ?? 1,
+            'branch_id' => $defaultBranch?->id,
             'all_branches' => true,
             'is_active' => true,
         ]);
@@ -63,6 +62,6 @@ class RegisterController extends Controller
         $request->session()->regenerate();
 
         return redirect()->route('dashboard')
-            ->with('toast_success', 'Welcome, ' . $user->name . '! Your Super Admin account has been created.');
+            ->with('toast_success', 'Welcome, '.$user->name.'! Your Super Admin account has been created.');
     }
 }

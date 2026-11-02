@@ -26,7 +26,7 @@
 
 <div class="dash-scroll">
     {{-- Key Figures --}}
-    <section class="kpi-grid four" id="kpis" aria-label="Key figures">
+    <section class="kpi-grid four kpi-grid-featured" id="kpis" aria-label="Key figures">
         <div class="kpi static">
             <span class="kpi-top">
                 <span class="kpi-icon">
@@ -172,10 +172,14 @@
                 </tbody>
             </table>
         </div>
+
+        @if($projectsAwaitingPo->total() > 0)
+            {{ $projectsAwaitingPo->withQueryString()->links() }}
+        @endif
     </section>
 
     {{-- All Projects Table with status tabs --}}
-    <section class="card fill" id="projectsTable" style="margin-top: 20px;">
+    <section class="card fill" id="projectsTable" >
         <header class="card-head">
             <h2>
                 <span class="head-ic">
@@ -377,7 +381,6 @@
         <div class="modal-head">
             <div>
                 <h3 id="recordPoTitle">Record Client PO</h3>
-                <p id="recordPoSub">Enter official PO details to open project</p>
             </div>
             <button class="icon-btn" type="button" onclick="closeRecordPoModal()" aria-label="Close">
                 <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
@@ -432,7 +435,6 @@
 
     function openRecordPoModal(project) {
         document.getElementById('recordPoTitle').textContent = 'Record PO · ' + project.project_number;
-        document.getElementById('recordPoSub').textContent = project.client_name + ' &bull; Contract: AED ' + (project.contract_value || 0).toLocaleString();
         document.getElementById('recordPoForm').action = '/projects/' + project.id + '/po';
         document.getElementById('inPoAmount').value = project.contract_value || '';
         document.getElementById('recordPoModal').style.display = 'grid';

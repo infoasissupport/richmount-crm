@@ -68,7 +68,7 @@
     </section>
 
     {{-- Sync Logs Table --}}
-    <section class="card fill" id="zohoLog" style="margin-top: 20px;">
+    <section class="card fill" id="zohoLog" >
         <header class="card-head">
             <h2>
                 <span class="head-ic">

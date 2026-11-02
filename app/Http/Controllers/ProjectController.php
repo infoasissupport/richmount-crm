@@ -56,16 +56,24 @@ class ProjectController extends Controller
             ->get();
 
         // (b) Projects waiting for PO
-        $projectsAwaitingPo = Project::accessibleBy($user)
+        $projectsAwaitingPoQuery = Project::accessibleBy($user)
             ->where('status', 'popending')
             ->with(['lead', 'quotation', 'branch'])
-            ->get();
+            ->latest();
+
+        if ($request->wantsJson()) {
+            $projectsAwaitingPo = $projectsAwaitingPoQuery->get();
+            $projectsAwaitingPoCount = $projectsAwaitingPo->count();
+        } else {
+            $projectsAwaitingPo = $projectsAwaitingPoQuery->paginate(15, ['*'], 'awaiting_po_page');
+            $projectsAwaitingPoCount = $projectsAwaitingPo->total();
+        }
 
         // 3. KPIs
         $baseKpi = Project::accessibleBy($user);
         $kpis = [
             'active_projects' => (clone $baseKpi)->whereIn('status', ['open', 'inprogress'])->count(),
-            'awaiting_activation' => $awardedWithoutProject->count() + $projectsAwaitingPo->count(),
+            'awaiting_activation' => $awardedWithoutProject->count() + $projectsAwaitingPoCount,
             'completed_projects' => (clone $baseKpi)->whereIn('status', ['completed', 'closed'])->count(),
             'total_invoiced' => (clone $baseKpi)->with('invoices')->get()->sum(fn ($p) => $p->totalInvoiced()),
         ];

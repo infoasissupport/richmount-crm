@@ -199,12 +199,12 @@
 
     {{-- Notification / Info Banner --}}
     @if($quote && $quote->status === 'pending')
-        <div style="background: #FFF1F2; border: 1px solid #FFE4E6; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; color: #BE123C; font-size: 13px;">
+        <div style="background: #FFF1F2; border: 1px solid #FFE4E6; border-radius: 8px; padding: 10px 14px; margin-bottom: 0px; display: flex; align-items: center; gap: 8px; color: #BE123C; font-size: 13px;">
             <svg class="ic sm" style="width: 16px; height: 16px; color: #E11D48;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg>
             <span>This quotation is waiting for your approval.</span>
         </div>
     @elseif($quote && $quote->status === 'approved')
-        <div style="background: #F0FDF4; border: 1px solid #DCFCE7; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; color: #15803D; font-size: 13px;">
+        <div style="background: #F0FDF4; border: 1px solid #DCFCE7; border-radius: 8px; padding: 10px 14px; margin-bottom: 0px; display: flex; align-items: center; gap: 8px; color: #15803D; font-size: 13px;">
             <svg class="ic sm" style="width: 16px; height: 16px; color: #16A34A;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check-circle"/></svg>
             <span>Approved {{ $quote->approvedBy ? 'by ' . $quote->approvedBy->name : '' }}. Ready to be sent to the customer.</span>
         </div>
@@ -213,7 +213,7 @@
             $reopenedHist = $quote->histories ? $quote->histories->where('action', 'reopened')->last() : null;
         @endphp
         @if($reopenedHist)
-            <div style="background: #EFF6FF; border: 1px solid #DBEAFE; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; color: #1E40AF; font-size: 13px;">
+            <div style="background: #EFF6FF; border: 1px solid #DBEAFE; border-radius: 8px; padding: 10px 14px; margin-bottom: 0px; display: flex; align-items: center; gap: 8px; color: #1E40AF; font-size: 13px;">
                 <svg class="ic sm" style="width: 16px; height: 16px; color: #3B82F6;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"/></svg>
                 <span>{{ $reopenedHist->text }}. Make the changes and submit for approval again.</span>
             </div>
@@ -955,7 +955,7 @@
 {{-- Send Quotation Modal --}}
 @if($quote && $quote->status === 'approved')
 <div class="modal-wrap" id="sendModal" style="display: none;" onclick="if(event.target === this) closeSendModal()">
-    <div class="modal modal-md" role="dialog" aria-modal="true" aria-labelledby="sendModalTitle" style="max-width: 580px;">
+    <div class="modal modal-md" role="dialog" aria-modal="true" aria-labelledby="sendModalTitle" style="max-width: 620px;">
         <div class="modal-head">
             <div>
                 <h3 id="sendModalTitle">Send Quotation</h3>

@@ -55,7 +55,7 @@
             $avgMargin = $totalContract > 0 ? round(($totalProfit / $totalContract) * 100, 1) : 0;
         @endphp
 
-        <section class="kpi-grid four" aria-label="Profitability KPIs">
+        <section class="kpi-grid four kpi-grid-featured" aria-label="Profitability KPIs">
             <div class="kpi static">
                 <span class="kpi-top">
                     <span class="kpi-icon">
@@ -69,7 +69,7 @@
 
             <div class="kpi static">
                 <span class="kpi-top">
-                    <span class="kpi-icon" style="background: rgba(16, 185, 129, 0.12); color: #10b981;">
+                    <span class="kpi-icon">
                         <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-file-text"/></svg>
                     </span>
                 </span>
@@ -80,7 +80,7 @@
 
             <div class="kpi static">
                 <span class="kpi-top">
-                    <span class="kpi-icon" style="background: rgba(239, 68, 68, 0.12); color: #ef4444;">
+                    <span class="kpi-icon">
                         <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-wallet"/></svg>
                     </span>
                 </span>
@@ -91,7 +91,7 @@
 
             <div class="kpi static">
                 <span class="kpi-top">
-                    <span class="kpi-icon" style="background: rgba(59, 130, 246, 0.12); color: #3b82f6;">
+                    <span class="kpi-icon">
                         <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-trending-up"/></svg>
                     </span>
                 </span>
@@ -101,7 +101,7 @@
             </div>
         </section>
 
-        <section class="card" style="margin-top: 20px;">
+        <section class="card" >
             <header class="card-head">
                 <h2>Project Job-Costing & Profit Margin Analysis</h2>
             </header>

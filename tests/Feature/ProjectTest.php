@@ -37,6 +37,42 @@ class ProjectTest extends TestCase
         $response->assertSee('PRJ-2026-0001');
     }
 
+    public function test_po_pending_projects_are_paginated_without_truncating_json_results(): void
+    {
+        $superAdmin = User::where('role_name', 'super_admin')->firstOrFail();
+        $branch = Branch::firstOrFail();
+
+        for ($index = 1; $index <= 16; $index++) {
+            Project::create([
+                'project_number' => sprintf('PRJ-PENDING-%02d', $index),
+                'name' => 'Pending Project '.$index,
+                'branch_id' => $branch->id,
+                'client_name' => 'Pending Client '.$index,
+                'contract_value' => 1000,
+                'status' => 'popending',
+                'created_at' => now()->subMinutes($index),
+                'updated_at' => now()->subMinutes($index),
+            ]);
+        }
+
+        $this->actingAs($superAdmin);
+
+        $firstPage = $this->get(route('projects.index'));
+        $firstPage->assertOk()
+            ->assertSee('awaiting_po_page=2', false)
+            ->assertSee('PRJ-PENDING-01')
+            ->assertDontSee('PRJ-PENDING-16');
+
+        $secondPage = $this->get(route('projects.index', ['awaiting_po_page' => 2]));
+        $secondPage->assertOk()
+            ->assertSee('PRJ-PENDING-16')
+            ->assertDontSee('PRJ-PENDING-01');
+
+        $this->getJson(route('projects.index'))
+            ->assertOk()
+            ->assertJsonCount(16, 'awaiting_po');
+    }
+
     public function test_projects_status_tabs_filtering(): void
     {
         $superAdmin = User::where('role_name', 'super_admin')->first();

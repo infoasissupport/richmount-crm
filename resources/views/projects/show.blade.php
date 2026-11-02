@@ -187,7 +187,7 @@
             default => 'Project active.',
         };
     @endphp
-    <div class="info-box {{ $bannerTone }}" style="margin: 15px 0;">
+    <div class="info-box {{ $bannerTone }}" style="margin: 0px 0;">
         <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="{{ $bannerIcon }}"/></svg>
         <span>{!! $bannerMsg !!}</span>
     </div>
@@ -244,7 +244,7 @@
     </section>
 
     {{-- Detail Grid: Left (KV), Right (Description & Docs) --}}
-    <div class="detail-grid" style="margin-top: 15px;">
+    <div class="detail-grid" >
         <section class="card">
             <header class="card-head">
                 <h2>
@@ -372,7 +372,7 @@
     </div>
 
     {{-- Purchase Orders Section (Vendor POs) --}}
-    <section class="card" style="margin-top: 15px;">
+    <section class="card" >
         <header class="card-head">
             <h2>
                 <span class="head-ic">
@@ -427,7 +427,7 @@
     </section>
 
     {{-- Project Expenses Section --}}
-    <section class="card" id="projExpenses" style="margin-top: 15px;">
+    <section class="card" id="projExpenses" >
         <header class="card-head">
             <h2>
                 <span class="head-ic">
@@ -511,7 +511,7 @@
     </section>
 
     {{-- Detail Grid: Invoices & Activity Timeline --}}
-    <div class="detail-grid" style="margin-top: 15px;">
+    <div class="detail-grid" >
         <section class="card" id="projInvoices">
             <header class="card-head">
                 <h2>

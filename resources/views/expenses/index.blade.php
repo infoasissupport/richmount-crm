@@ -197,7 +197,7 @@
     </section>
 
     {{-- Internal Transfers Table --}}
-    <section class="card" id="transfersTable" style="margin-top: 20px;">
+    <section class="card" id="transfersTable" >
         <header class="card-head">
             <h2>
                 <span class="head-ic">
@@ -280,7 +280,7 @@
     </section>
 
     {{-- Two-col grid: Left (Cash in Hand by Engineer), Right (Customer Payments) --}}
-    <div class="two-col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+    <div class="two-col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
         {{-- Cash in Hand by Engineer --}}
         <section class="card" id="cashTable">
             <header class="card-head">

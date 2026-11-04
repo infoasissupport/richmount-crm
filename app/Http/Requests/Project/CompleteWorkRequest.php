@@ -21,6 +21,8 @@ class CompleteWorkRequest extends FormRequest
             'client_representative_name' => ['nullable', 'string', 'max:150'],
             'client_representative_title' => ['nullable', 'string', 'max:150'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'project_documents' => ['nullable', 'array'],
+            'project_documents.*' => ['file', 'mimes:pdf,png,jpg,jpeg,dwg,xls,xlsx,doc,docx', 'max:20480'],
         ];
     }
 }

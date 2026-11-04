@@ -3,11 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
+use App\Models\Expense;
+use App\Models\Invoice;
 use App\Models\Lead;
 use App\Models\Project;
 use App\Models\PurchaseOrder;
 use App\Models\Quotation;
 use App\Models\User;
+use App\Models\Vehicle;
 use App\Models\WorkCompletionCertificate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -73,6 +76,224 @@ class ProjectTest extends TestCase
             ->assertJsonCount(16, 'awaiting_po');
     }
 
+    public function test_project_detail_transactions_paginate_independently_and_keep_full_totals(): void
+    {
+        $superAdmin = User::where('role_name', 'super_admin')->firstOrFail();
+        $branch = Branch::firstOrFail();
+        $project = Project::create([
+            'project_number' => 'PRJ-DETAIL-PAGES',
+            'name' => 'Paginated Detail Project',
+            'branch_id' => $branch->id,
+            'client_name' => 'Pagination Client',
+            'contract_value' => 10000,
+            'status' => 'open',
+        ]);
+
+        foreach (range(1, 11) as $index) {
+            PurchaseOrder::create([
+                'po_number' => sprintf('VPO-PAGE-%02d', $index),
+                'project_id' => $project->id,
+                'branch_id' => $branch->id,
+                'vendor_name' => 'Pagination Vendor',
+                'po_date' => now()->subDays($index),
+                'subtotal' => 100,
+                'vat_rate' => 0.05,
+                'vat_amount' => 5,
+                'grand_total' => 105,
+                'status' => 'pending',
+            ]);
+
+            Expense::create([
+                'expense_number' => sprintf('EXP-DETAIL-PAGE-%02d', $index),
+                'project_id' => $project->id,
+                'branch_id' => $branch->id,
+                'user_id' => $superAdmin->id,
+                'category' => 'materials',
+                'vendor_name' => 'Pagination Vendor',
+                'date' => now()->subDays($index),
+                'type' => 'cash',
+                'subtotal' => 50,
+                'vat_rate' => 0.05,
+                'vat_amount' => 2.5,
+                'grand_total' => 52.5,
+                'description' => 'Pagination expense',
+                'status' => 'approved',
+            ]);
+
+            Invoice::create([
+                'invoice_number' => sprintf('INV-DETAIL-PAGE-%02d', $index),
+                'project_id' => $project->id,
+                'branch_id' => $branch->id,
+                'created_by_id' => $superAdmin->id,
+                'client_name' => 'Pagination Client',
+                'invoice_date' => now()->subDays($index),
+                'subtotal' => 100,
+                'vat_rate' => 0.05,
+                'vat_amount' => 5,
+                'grand_total' => 105,
+                'balance_due' => 105,
+                'status' => 'sent',
+            ]);
+        }
+
+        $this->actingAs($superAdmin);
+
+        $response = $this->get(route('projects.show', [
+            'project' => $project,
+            'vendor_pos_page' => 2,
+            'project_expenses_page' => 2,
+            'project_invoices_page' => 2,
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('projectTotals', fn (array $totals): bool =>
+            $totals['total_invoiced'] === 1155.0
+            && $totals['total_expenses'] === 577.5
+            && $totals['sent_invoice_count'] === 11
+        );
+        $response->assertViewHas('vendorPurchaseOrders', fn ($rows) => $rows->total() === 11 && $rows->currentPage() === 2 && $rows->count() === 1);
+        $response->assertViewHas('projectExpenses', fn ($rows) => $rows->total() === 11 && $rows->currentPage() === 2 && $rows->count() === 1);
+        $response->assertViewHas('projectInvoices', fn ($rows) => $rows->total() === 11 && $rows->currentPage() === 2 && $rows->count() === 1);
+    }
+
+    public function test_project_expenses_can_be_filtered_by_search_and_status(): void
+    {
+        $superAdmin = User::where('role_name', 'super_admin')->firstOrFail();
+        $project = Project::firstOrFail();
+
+        Expense::create([
+            'expense_number' => 'EXP-FILTER-MATCH',
+            'project_id' => $project->id,
+            'branch_id' => $project->branch_id,
+            'user_id' => $superAdmin->id,
+            'category' => 'materials',
+            'vendor_name' => 'Filter Test Supplier',
+            'date' => now(),
+            'type' => 'cash',
+            'subtotal' => 100,
+            'vat_rate' => 0.05,
+            'vat_amount' => 5,
+            'grand_total' => 105,
+            'description' => 'Approved search match',
+            'status' => 'approved',
+        ]);
+        Expense::create([
+            'expense_number' => 'EXP-FILTER-OTHER',
+            'project_id' => $project->id,
+            'branch_id' => $project->branch_id,
+            'user_id' => $superAdmin->id,
+            'category' => 'materials',
+            'vendor_name' => 'Filter Test Supplier',
+            'date' => now(),
+            'type' => 'cash',
+            'subtotal' => 100,
+            'vat_rate' => 0.05,
+            'vat_amount' => 5,
+            'grand_total' => 105,
+            'description' => 'Rejected search match',
+            'status' => 'rejected',
+        ]);
+
+        $this->actingAs($superAdmin);
+
+        $response = $this->get(route('projects.show', [
+            'project' => $project,
+            'expense_search' => 'EXP-FILTER-MATCH',
+            'expense_status' => 'approved',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('EXP-FILTER-MATCH');
+        $response->assertDontSee('EXP-FILTER-OTHER');
+        $response->assertViewHas('projectExpenses', fn ($rows) => $rows->total() === 1);
+    }
+
+    public function test_fuel_expense_requires_an_active_vehicle(): void
+    {
+        $superAdmin = User::where('role_name', 'super_admin')->firstOrFail();
+        $project = Project::where('status', 'inprogress')->firstOrFail();
+        $inactiveVehicle = Vehicle::create([
+            'name' => 'Retired Pickup',
+            'registration_number' => 'TEST-RETIRED-01',
+            'is_active' => false,
+        ]);
+
+        $this->actingAs($superAdmin);
+        $payload = [
+            'project_id' => $project->id,
+            'category' => 'fuel',
+            'type' => 'cash',
+            'subtotal' => 80,
+            'date' => now()->toDateString(),
+        ];
+
+        $this->from(route('projects.show', $project))
+            ->post(route('expenses.store'), $payload)
+            ->assertRedirect(route('projects.show', $project))
+            ->assertSessionHasErrors('vehicle_id');
+
+        $this->from(route('projects.show', $project))
+            ->post(route('expenses.store'), $payload + ['vehicle_id' => $inactiveVehicle->id])
+            ->assertRedirect(route('projects.show', $project))
+            ->assertSessionHasErrors('vehicle_id');
+    }
+
+    public function test_expense_approver_can_manage_vehicles_and_fuel_expense_saves_vehicle(): void
+    {
+        $accountant = User::where('role_name', 'accountant')->firstOrFail();
+        $project = Project::where('status', 'inprogress')->firstOrFail();
+        $this->actingAs($accountant);
+
+        $vehicleResponse = $this->post(route('vehicles.store'), [
+            'name' => 'Site Pickup 01',
+            'registration_number' => 'TEST-DXB-1001',
+            'make_model' => 'Toyota Hilux',
+        ]);
+
+        $vehicleResponse->assertRedirect(route('vehicles.index'));
+        $vehicle = Vehicle::where('registration_number', 'TEST-DXB-1001')->firstOrFail();
+
+        $this->get(route('projects.show', $project))
+            ->assertOk()
+            ->assertSee('TEST-DXB-1001 · Site Pickup 01');
+
+        $this->from(route('projects.show', $project))
+            ->post(route('expenses.store'), [
+                'project_id' => $project->id,
+                'vehicle_id' => $vehicle->id,
+                'category' => 'fuel',
+                'type' => 'cash',
+                'subtotal' => 80,
+                'date' => now()->toDateString(),
+                'description' => 'Fuel for site pickup',
+            ])
+            ->assertRedirect(route('projects.show', $project));
+
+        $this->assertDatabaseHas('expenses', [
+            'project_id' => $project->id,
+            'vehicle_id' => $vehicle->id,
+            'category' => 'fuel',
+        ]);
+    }
+
+    public function test_vehicle_can_be_added_from_fuel_expense_with_registration_number_only(): void
+    {
+        $accountant = User::where('role_name', 'accountant')->firstOrFail();
+        $this->actingAs($accountant);
+
+        $this->postJson(route('vehicles.store'), [
+            'registration_number' => 'DXB A 12345',
+        ])->assertCreated()
+            ->assertJsonPath('vehicle.registration_number', 'DXB A 12345')
+            ->assertJsonPath('vehicle.name', 'DXB A 12345');
+
+        $this->assertDatabaseHas('vehicles', [
+            'registration_number' => 'DXB A 12345',
+            'name' => 'DXB A 12345',
+            'is_active' => true,
+        ]);
+    }
+
     public function test_projects_status_tabs_filtering(): void
     {
         $superAdmin = User::where('role_name', 'super_admin')->first();
@@ -87,6 +308,51 @@ class ProjectTest extends TestCase
         $responsePoPending = $this->get('/projects?tab=popending');
         $responsePoPending->assertStatus(200);
         $responsePoPending->assertSee('PRJ-2026-0002'); // Abu Dhabi is popending
+    }
+
+    public function test_authorized_user_can_edit_project_details_from_the_projects_list(): void
+    {
+        $superAdmin = User::where('role_name', 'super_admin')->firstOrFail();
+        $branch = Branch::firstOrFail();
+        $engineer = User::where('role_name', 'engineer')->firstOrFail();
+        $project = Project::create([
+            'project_number' => 'PRJ-EDIT-TEST',
+            'name' => 'Original Project Name',
+            'branch_id' => $branch->id,
+            'engineer_id' => $engineer->id,
+            'client_name' => 'Original Client',
+            'client_po_number' => 'PO-KEEP-001',
+            'contract_value' => 1000,
+            'status' => 'open',
+        ]);
+
+        $this->actingAs($superAdmin);
+
+        $this->get(route('projects.index'))
+            ->assertOk()
+            ->assertSee('aria-label="Edit project PRJ-EDIT-TEST"', false);
+
+        $this->put(route('projects.update', $project), [
+            'name' => 'Updated Project Name',
+            'client_name' => 'Updated Client',
+            'branch_id' => $branch->id,
+            'engineer_id' => $engineer->id,
+            'contract_value' => 1250.50,
+            'start_date' => '2026-11-02',
+            'expected_end_date' => '2026-12-15',
+            'description' => 'Updated project scope.',
+        ])
+            ->assertRedirect(route('projects.index'))
+            ->assertSessionHas('toast_success');
+
+        $this->assertDatabaseHas('projects', [
+            'id' => $project->id,
+            'name' => 'Updated Project Name',
+            'client_name' => 'Updated Client',
+            'contract_value' => 1250.50,
+            'client_po_number' => 'PO-KEEP-001',
+            'status' => 'open',
+        ]);
     }
 
     public function test_can_create_project_manually(): void
@@ -304,10 +570,12 @@ class ProjectTest extends TestCase
 
     public function test_complete_work_issues_wcc_certificate(): void
     {
+        Storage::fake('public');
         $superAdmin = User::where('role_name', 'super_admin')->first();
         $this->actingAs($superAdmin);
 
         $project = Project::where('status', 'inprogress')->first();
+        $handoverDocument = UploadedFile::fake()->createWithContent('handover.pdf', '%PDF-1.4 handover report');
 
         $response = $this->post("/projects/{$project->id}/complete-work", [
             'completion_date' => '2026-10-26',
@@ -316,6 +584,7 @@ class ProjectTest extends TestCase
             'retention_amount' => 19950.00,
             'client_representative_name' => 'Eng. Omar Al Qasimi',
             'client_representative_title' => 'Project Director',
+            'project_documents' => [$handoverDocument],
         ]);
 
         $response->assertRedirect();
@@ -324,6 +593,8 @@ class ProjectTest extends TestCase
         $this->assertEquals(100, $fresh->progress_pct);
         $this->assertNotNull($fresh->latestWorkCompletionCertificate);
         $this->assertEquals('Eng. Omar Al Qasimi', $fresh->latestWorkCompletionCertificate->client_representative_name);
+        $completionDocument = $project->documents()->where('kind', 'completion')->firstOrFail();
+        Storage::disk('public')->assertExists($completionDocument->file_path);
     }
 
     public function test_vendor_purchase_order_creation_and_pdf_download(): void

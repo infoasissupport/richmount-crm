@@ -11,7 +11,7 @@
 @endsection
 
 @section('content')
-<section class="page-head" id="pageHead">
+<section class="page-head project-detail-head" id="pageHead">
     <div>
         <h1>{{ $project->project_number }} &bull; {{ $project->name }}</h1>
         <p class="sub">{{ $project->client_name }} &bull; {{ $project->branch->name }}</p>
@@ -59,12 +59,6 @@
             </button>
             @endcan
 
-            @can('invoices.create')
-            <button class="btn btn-ghost" type="button" onclick="openInvoiceModal(false)">
-                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-invoice"/></svg>
-                Progress Invoice
-            </button>
-            @endcan
         @endif
 
         {{-- On Hold action: Resume Work --}}
@@ -90,11 +84,15 @@
             @endcan
         @endif
 
-        {{-- Vendor PO --}}
-        <button class="btn btn-soft" type="button" onclick="openVendorPoModal()">
-            <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-text"/></svg>
-            Vendor PO
+        {{-- Add Project Expense --}}
+        @if($project->canRecordExpenses())
+        @can('expenses.create')
+        <button class="btn btn-ghost" type="button" onclick="openExpenseModal({{ $project->id }})">
+            <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-wallet"/></svg>
+            Add Expense
         </button>
+        @endcan
+        @endif
 
         {{-- Customer Payment Received on Site --}}
         @if(in_array($project->status, ['open', 'inprogress', 'completed']))
@@ -106,15 +104,20 @@
         @endcan
         @endif
 
-        {{-- Add Project Expense --}}
-        @if($project->canRecordExpenses())
-        @can('expenses.create')
-        <a class="btn btn-ghost" href="{{ route('expenses.index', ['new' => 1, 'project_id' => $project->id]) }}">
-            <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-wallet"/></svg>
-            Add Expense
-        </a>
-        @endcan
+        @if($project->status === 'inprogress')
+            @can('invoices.create')
+            <button class="btn btn-ghost" type="button" onclick="openInvoiceModal(false)">
+                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-invoice"/></svg>
+                Progress Invoice
+            </button>
+            @endcan
         @endif
+
+        {{-- Vendor PO --}}
+        <button class="btn btn-soft" type="button" onclick="openVendorPoModal()">
+            <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-text"/></svg>
+            Vendor PO
+        </button>
     </div>
 </section>
 
@@ -194,8 +197,8 @@
 
     {{-- Project Stats KPIs --}}
     @php
-        $totalInvoiced = $project->invoices->whereNotIn('status', ['draft', 'void'])->sum('grand_total');
-        $totalExpenses = $project->expenses->where('status', 'approved')->sum('grand_total');
+        $totalInvoiced = $projectTotals['total_invoiced'];
+        $totalExpenses = $projectTotals['total_expenses'];
     @endphp
     <section class="kpi-grid four" id="projStats">
         <div class="kpi static">
@@ -237,7 +240,7 @@
                     <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-clock"/></svg>
                 </span>
             </span>
-            <span class="kpi-value">{{ $project->invoices->where('status', 'sent')->count() }}</span>
+            <span class="kpi-value">{{ $projectTotals['sent_invoice_count'] }}</span>
             <span class="kpi-label">Pending Invoices</span>
             <span class="kpi-note">Awaiting client payment</span>
         </div>
@@ -386,7 +389,7 @@
             </button>
         </header>
 
-        <div class="table-wrap">
+        <div class="table-wrap page">
             <table class="table" style="font-size: 11.5px;">
                 <thead>
                     <tr>
@@ -400,7 +403,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($project->purchaseOrders as $vpo)
+                    @forelse($vendorPurchaseOrders as $vpo)
                         <tr>
                             <td class="strong">{{ $vpo->po_number }}</td>
                             <td><b>{{ $vpo->vendor_name }}</b></td>
@@ -424,6 +427,7 @@
                 </tbody>
             </table>
         </div>
+        {{ $vendorPurchaseOrders->withQueryString()->links() }}
     </section>
 
     {{-- Project Expenses Section --}}
@@ -435,17 +439,38 @@
                 </span>
                 Project Expenses
             </h2>
+            <form method="GET" action="{{ route('projects.show', $project) }}" class="recent-filters project-expense-filters">
+                @if(request()->filled('vendor_pos_page'))
+                    <input type="hidden" name="vendor_pos_page" value="{{ request('vendor_pos_page') }}">
+                @endif
+                @if(request()->filled('project_invoices_page'))
+                    <input type="hidden" name="project_invoices_page" value="{{ request('project_invoices_page') }}">
+                @endif
+                <label class="search-input recent-search">
+                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg>
+                    <input type="search" name="expense_search" value="{{ $expenseSearch }}" placeholder="Search expenses..." aria-label="Search project expenses" onchange="this.form.submit()">
+                </label>
+                <span class="select-wrap mini with-icon">
+                    <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-filter"/></svg>
+                    <select name="expense_status" aria-label="Filter expenses by status" onchange="this.form.submit()">
+                        <option value="">All statuses</option>
+                        @foreach(['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected'] as $statusValue => $statusLabel)
+                            <option value="{{ $statusValue }}" {{ $expenseStatus === $statusValue ? 'selected' : '' }}>{{ $statusLabel }}</option>
+                        @endforeach
+                    </select>
+                </span>
+            </form>
             @if($project->canRecordExpenses())
                 @can('expenses.create')
-                <a class="btn btn-primary btn-sm" href="{{ route('expenses.index', ['new' => 1, 'project_id' => $project->id]) }}">
+                <button class="btn btn-primary btn-sm" type="button" onclick="openExpenseModal({{ $project->id }})">
                     <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg>
                     Add Expense
-                </a>
+                </button>
                 @endcan
             @endif
         </header>
 
-        <div class="table-wrap">
+        <div class="table-wrap page">
             <table class="table" style="font-size: 11.5px;">
                 <thead>
                     <tr>
@@ -455,13 +480,14 @@
                         <th>Category</th>
                         <th>Vendor / Description</th>
                         <th>Type</th>
+                        <th>Vehicle</th>
                         <th class="num">Amount (AED)</th>
                         <th>Status</th>
                         <th class="ta-c">Receipt</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($project->expenses as $exp)
+                    @forelse($projectExpenses as $exp)
                         <tr>
                             <td class="strong">{{ $exp->expense_number }}</td>
                             <td>{{ $exp->date->format('d M Y') }}</td>
@@ -477,6 +503,7 @@
                             <td>
                                 <span class="pill pill-{{ $exp->type === 'cash' ? 'primary' : 'purple' }}">{{ ucfirst($exp->type) }}</span>
                             </td>
+                            <td>{{ $exp->vehicle?->registration_number ?? '—' }}</td>
                             <td class="num"><b>{{ number_format($exp->grand_total, 2) }}</b></td>
                             <td>
                                 @php
@@ -500,7 +527,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" style="text-align: center; color: var(--muted); padding: 20px;">
+                            <td colspan="10" style="text-align: center; color: var(--muted); padding: 20px;">
                                 No site expenses recorded for this project yet.
                             </td>
                         </tr>
@@ -508,6 +535,7 @@
                 </tbody>
             </table>
         </div>
+        {{ $projectExpenses->withQueryString()->links() }}
     </section>
 
     {{-- Detail Grid: Invoices & Activity Timeline --}}
@@ -528,7 +556,7 @@
                 @endcan
             </header>
 
-            <div class="table-wrap">
+            <div class="table-wrap page">
                 <table class="table" style="font-size: 11.5px;">
                     <thead>
                         <tr>
@@ -542,7 +570,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($project->invoices as $inv)
+                        @forelse($projectInvoices as $inv)
                             <tr>
                                 <td class="strong">{{ $inv->invoice_number }}</td>
                                 <td>{{ $inv->invoice_date->format('d M Y') }}</td>
@@ -573,6 +601,7 @@
                     </tbody>
                 </table>
             </div>
+            {{ $projectInvoices->withQueryString()->links() }}
         </section>
 
         {{-- Activity Timeline --}}
@@ -586,9 +615,9 @@
                 </h2>
             </header>
 
-            <ul class="events" id="projTimeline" style="list-style: none; padding: 0 16px 16px 16px; margin: 0;">
+            <ul class="events" id="projTimeline" style="list-style: none;  margin: 0;">
                 @forelse($project->activities as $act)
-                    <li class="ev" style="display: flex; gap: 12px; margin-bottom: 14px; position: relative;">
+                    <li class="ev" style="display: flex; gap: 12px; margin-bottom: 0px; position: relative;">
                         <span class="ev-dot" style="width: 10px; height: 10px; border-radius: 50%; background: var(--primary); margin-top: 5px; flex-shrink: 0;"></span>
                         <div>
                             <strong style="font-size: 12px; display: block;">{{ $act->text }}</strong>
@@ -605,8 +634,15 @@
     </div>
 </div>
 
+@include('expenses.partials.form-modal', [
+    'projectContext' => $project,
+    'openProjects' => collect([$project]),
+    'selectedProjectId' => $project->id,
+    'autoOpen' => false,
+])
+
 {{-- Record Client PO Modal --}}
-<div class="modal-wrap" id="recordPoModal" style="display: none;">
+<div class="modal-wrap project-modal" id="recordPoModal" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="recordPoTitle">
         <div class="modal-head">
             <div>
@@ -656,45 +692,64 @@
 </div>
 
 {{-- Complete Work Modal --}}
-<div class="modal-wrap" id="completeModal" style="display: none;">
-    <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="completeTitle">
+<div class="modal-wrap project-modal" id="completeModal" aria-hidden="true">
+    <div class="modal complete-report-modal" role="dialog" aria-modal="true" aria-labelledby="completeTitle">
         <div class="modal-head">
             <div>
-                <h3 id="completeTitle">Work Completion &amp; Handover Certificate</h3>
-                <p>Generate formal Work Completion Certificate (WCC)</p>
+                <h3 id="completeTitle">Work Completion Report</h3>
+                <p>{{ $project->project_number }} · {{ $project->client_name }} – {{ $project->name }}</p>
             </div>
             <button class="icon-btn" type="button" onclick="closeCompleteModal()" aria-label="Close">
                 <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
             </button>
         </div>
 
-        <form action="{{ route('projects.complete-work', $project) }}" method="POST">
+        <form action="{{ route('projects.complete-work', $project) }}" method="POST" enctype="multipart/form-data">
             @csrf
             <div class="modal-body">
                 <div class="form-grid">
                     <div class="field">
-                        <label class="label req" for="wccDate">Handover / Completion Date</label>
+                        <label class="label req" for="wccDate">Completion Date</label>
                         <input class="input" id="wccDate" name="completion_date" type="date" required value="{{ date('Y-m-d') }}">
                     </div>
 
                     <div class="field">
-                        <label class="label" for="retPct">Retention Percentage (%)</label>
-                        <input class="input" id="retPct" name="retention_pct" type="number" step="0.5" value="10.0">
-                    </div>
-
-                    <div class="field">
-                        <label class="label" for="clientRep">Client Representative Name</label>
-                        <input class="input" id="clientRep" name="client_representative_name" type="text" placeholder="e.g. Eng. Tariq Al Nuaimi">
-                    </div>
-
-                    <div class="field">
-                        <label class="label" for="clientTitle">Client Representative Designation</label>
-                        <input class="input" id="clientTitle" name="client_representative_title" type="text" placeholder="e.g. Senior Project Consultant">
+                        <label class="label" for="wccPreparedBy">Prepared By</label>
+                        <input class="input" id="wccPreparedBy" type="text" value="{{ auth()->user()->name }}" readonly>
                     </div>
 
                     <div class="field span-2">
-                        <label class="label req" for="wccDesc">Completion Scope Summary &amp; Remarks</label>
-                        <textarea class="textarea" id="wccDesc" name="work_description" rows="3" required placeholder="All contracted scope executed in accordance with authority approvals and client sign-off."></textarea>
+                        <label class="label req" for="wccDesc">Completion Notes</label>
+                        <textarea class="textarea" id="wccDesc" name="work_description" rows="3" required placeholder="Works Completed, Snags Closed, Handover Details"></textarea>
+                    </div>
+
+                    <div class="field span-2">
+                        <label class="label" for="wccDocuments">Documents</label>
+                        <input class="input" id="wccDocuments" name="project_documents[]" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.dwg,.xls,.xlsx,.doc,.docx" aria-describedby="wccDocumentsHint">
+                        <span class="hint" id="wccDocumentsHint">Handover certificate, photos, snag list. Up to 20MB per file.</span>
+                    </div>
+
+                    <details class="completion-extra span-2">
+                        <summary>Additional certificate details</summary>
+                        <div class="form-grid">
+                            <div class="field">
+                                <label class="label" for="retPct">Retention Percentage (%)</label>
+                                <input class="input" id="retPct" name="retention_pct" type="number" min="0" max="50" step="0.5" value="10.0">
+                            </div>
+                            <div class="field">
+                                <label class="label" for="clientRep">Client Representative Name</label>
+                                <input class="input" id="clientRep" name="client_representative_name" type="text" maxlength="150" placeholder="e.g. Eng. Tariq Al Nuaimi">
+                            </div>
+                            <div class="field span-2">
+                                <label class="label" for="clientTitle">Client Representative Designation</label>
+                                <input class="input" id="clientTitle" name="client_representative_title" type="text" maxlength="150" placeholder="e.g. Senior Project Consultant">
+                            </div>
+                        </div>
+                    </details>
+
+                    <div class="info-box span-2">
+                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg>
+                        <span>After submission, the project will be ready for the Accountant to raise the final invoice.</span>
                     </div>
                 </div>
             </div>
@@ -703,7 +758,7 @@
                 <button class="btn btn-ghost" type="button" onclick="closeCompleteModal()">Cancel</button>
                 <button class="btn btn-primary" type="submit">
                     <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check-circle"/></svg>
-                    Issue Certificate & Complete
+                    Submit Report
                 </button>
             </div>
         </form>
@@ -711,7 +766,7 @@
 </div>
 
 {{-- Put On Hold Modal --}}
-<div class="modal-wrap" id="holdModal" style="display: none;">
+<div class="modal-wrap project-modal" id="holdModal" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="holdTitle">
         <div class="modal-head">
             <div>
@@ -743,7 +798,7 @@
 </div>
 
 {{-- Raise Invoice Modal --}}
-<div class="modal-wrap" id="invoiceModal" style="display: none;">
+<div class="modal-wrap project-modal" id="invoiceModal" aria-hidden="true">
     <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="invoiceTitle">
         <div class="modal-head">
             <div>
@@ -799,7 +854,7 @@
 </div>
 
 {{-- Vendor PO Modal --}}
-<div class="modal-wrap" id="vendorPoModal" style="display: none;">
+<div class="modal-wrap project-modal" id="vendorPoModal" aria-hidden="true">
     <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="vendorPoTitle">
         <div class="modal-head">
             <div>
@@ -864,7 +919,7 @@
 </div>
 
 {{-- Record Payment Modal --}}
-<div class="modal-wrap" id="paymentModal" style="display: none;">
+<div class="modal-wrap project-modal" id="paymentModal" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="paymentTitle">
         <div class="modal-head">
             <div>
@@ -918,41 +973,47 @@
 </div>
 
 <script>
+    function setProjectModalOpen(modalId, isOpen) {
+        const modal = document.getElementById(modalId);
+        modal.classList.toggle('open', isOpen);
+        modal.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+    }
+
     function openRecordPoModal() {
-        document.getElementById('recordPoModal').style.display = 'grid';
+        setProjectModalOpen('recordPoModal', true);
     }
     function closeRecordPoModal() {
-        document.getElementById('recordPoModal').style.display = 'none';
+        setProjectModalOpen('recordPoModal', false);
     }
 
     function openCompleteModal() {
-        document.getElementById('completeModal').style.display = 'grid';
+        setProjectModalOpen('completeModal', true);
     }
     function closeCompleteModal() {
-        document.getElementById('completeModal').style.display = 'none';
+        setProjectModalOpen('completeModal', false);
     }
 
     function openHoldModal() {
-        document.getElementById('holdModal').style.display = 'grid';
+        setProjectModalOpen('holdModal', true);
     }
     function closeHoldModal() {
-        document.getElementById('holdModal').style.display = 'none';
+        setProjectModalOpen('holdModal', false);
     }
 
     function openInvoiceModal(isFinal) {
         document.getElementById('invIsFinal').value = isFinal ? '1' : '0';
         document.getElementById('invoiceTitle').textContent = isFinal ? 'Raise Final Tax Invoice' : 'Raise Progress Tax Invoice';
-        document.getElementById('invoiceModal').style.display = 'grid';
+        setProjectModalOpen('invoiceModal', true);
     }
     function closeInvoiceModal() {
-        document.getElementById('invoiceModal').style.display = 'none';
+        setProjectModalOpen('invoiceModal', false);
     }
 
     function openVendorPoModal() {
-        document.getElementById('vendorPoModal').style.display = 'grid';
+        setProjectModalOpen('vendorPoModal', true);
     }
     function closeVendorPoModal() {
-        document.getElementById('vendorPoModal').style.display = 'none';
+        setProjectModalOpen('vendorPoModal', false);
     }
 
     function openPaymentModal(invoice) {
@@ -960,10 +1021,10 @@
         document.getElementById('paymentSub').textContent = 'Balance Due: AED ' + (invoice.balance_due || 0).toLocaleString();
         document.getElementById('paymentForm').action = '/invoices/' + invoice.id + '/payment';
         document.getElementById('payAmt').value = invoice.balance_due || '';
-        document.getElementById('paymentModal').style.display = 'grid';
+        setProjectModalOpen('paymentModal', true);
     }
     function closePaymentModal() {
-        document.getElementById('paymentModal').style.display = 'none';
+        setProjectModalOpen('paymentModal', false);
     }
 </script>
 @endsection

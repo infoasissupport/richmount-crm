@@ -25,6 +25,7 @@ class ExpenseService
 
             $expense = Expense::create([
                 'expense_number' => Expense::nextExpenseNumber(),
+                'vehicle_id' => $data['vehicle_id'] ?? null,
                 'project_id' => $data['project_id'] ?? null,
                 'branch_id' => $data['branch_id'] ?? $author->branch_id,
                 'user_id' => $data['user_id'] ?? $author->id,

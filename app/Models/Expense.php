@@ -14,6 +14,7 @@ class Expense extends Model
 
     protected $fillable = [
         'expense_number',
+        'vehicle_id',
         'project_id',
         'branch_id',
         'user_id',
@@ -93,6 +94,11 @@ class Expense extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function vehicle(): BelongsTo
+    {
+        return $this->belongsTo(Vehicle::class);
     }
 
     public function approvedBy(): BelongsTo

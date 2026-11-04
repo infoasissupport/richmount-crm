@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Expense;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreExpenseRequest extends FormRequest
 {
@@ -15,6 +16,11 @@ class StoreExpenseRequest extends FormRequest
     {
         return [
             'project_id' => ['nullable', 'exists:projects,id'],
+            'vehicle_id' => [
+                'exclude_unless:category,fuel',
+                'required',
+                Rule::exists('vehicles', 'id')->where('is_active', true),
+            ],
             'branch_id' => ['nullable', 'exists:branches,id'],
             'category' => ['required', 'string', 'in:materials,transport,labor,meals,tools,fuel,permits,miscellaneous'],
             'vendor_name' => ['nullable', 'string', 'max:150'],

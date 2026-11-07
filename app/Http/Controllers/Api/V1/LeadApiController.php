@@ -95,6 +95,8 @@ class LeadApiController extends Controller
         $engineer = User::findOrFail($request->engineer_id);
         $lead->update(['assigned_engineer_id' => $engineer->id]);
 
+        $engineer->notify(new \App\Notifications\LeadAssignedNotification($lead, $request->user()));
+
         $lead->activities()->create([
             'user_id' => $request->user()->id,
             'kind' => 'assigned',

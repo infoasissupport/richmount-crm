@@ -16,7 +16,10 @@ class SettingController extends Controller
      */
     public function index(Request $request): View
     {
-        $this->authorize('viewAny', User::class); // Super Admin or users with settings.view
+        $user = $request->user();
+        if (!$user->can('settings.view') && !$user->isSuperAdmin()) {
+            abort(403, 'Unauthorized access to settings.');
+        }
 
         $branchesCount = Branch::count();
         $auditCount = AuditLog::count();
@@ -31,6 +34,11 @@ class SettingController extends Controller
      */
     public function updateApprover(Request $request): RedirectResponse
     {
+        $user = $request->user();
+        if (!$user->can('settings.edit') && !$user->isSuperAdmin()) {
+            abort(403, 'Unauthorized to modify settings.');
+        }
+
         $request->validate([
             'quote_approver' => 'required|in:estimation,admin',
         ]);

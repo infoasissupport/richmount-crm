@@ -18,8 +18,12 @@ class ProjectPolicy
             return false;
         }
 
-        if ($user->isSuperAdmin() || $user->isAccountant() || $user->isEstimation() || $user->all_branches) {
+        if ($user->isSuperAdmin() || $user->isAccountant() || $user->all_branches) {
             return true;
+        }
+
+        if ($user->isEstimation()) {
+            return $user->canAccessBranch($project->branch_id);
         }
 
         if ($user->isEngineer()) {

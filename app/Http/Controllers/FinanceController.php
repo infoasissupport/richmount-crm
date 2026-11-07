@@ -26,8 +26,10 @@ class FinanceController extends Controller
      */
     public function index(Request $request): View|JsonResponse
     {
-        $this->authorize('viewAny', Expense::class);
         $user = $request->user();
+        if (!$user->can('transactions.view') && !$user->isSuperAdmin() && !$user->isAccountant()) {
+            abort(403, 'Unauthorized access to Finance Approval Center.');
+        }
 
         // 1. Pending Expense Approvals
         $pendingExpenses = Expense::with(['project', 'branch', 'user'])

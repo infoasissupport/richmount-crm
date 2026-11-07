@@ -15,6 +15,7 @@ class QuotationLineItem extends Model
     protected $fillable = [
         'quotation_id',
         'sort_order',
+        'type', // null/'item' (priced row), 'section' (heading row, e.g. PRELIMINARIES), 'subdesc' (extra description under a priced row)
         'description',
         'quantity',
         'unit',
@@ -37,6 +38,16 @@ class QuotationLineItem extends Model
     public function quotation(): BelongsTo
     {
         return $this->belongsTo(Quotation::class);
+    }
+
+    public function isSection(): bool
+    {
+        return $this->type === 'section';
+    }
+
+    public function isSubDesc(): bool
+    {
+        return $this->type === 'subdesc';
     }
 
     /**

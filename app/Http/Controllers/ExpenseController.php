@@ -9,6 +9,7 @@ use App\Models\InvoicePayment;
 use App\Models\Project;
 use App\Models\Transfer;
 use App\Models\User;
+use App\Models\Vehicle;
 use App\Services\ExpenseService;
 use App\Services\ReportService;
 use Illuminate\Http\JsonResponse;
@@ -35,7 +36,7 @@ class ExpenseController extends Controller
 
         // 1. Expenses Query
         $expensesQuery = Expense::accessibleBy($user)
-            ->with(['project', 'branch', 'user'])
+            ->with(['project', 'branch', 'user', 'vehicle'])
             ->when($tab === 'cash', fn($q) => $q->where('type', 'cash'))
             ->when($tab === 'card', fn($q) => $q->where('type', 'card'))
             ->when(in_array($tab, ['pending', 'approved', 'rejected']), fn($q) => $q->where('status', $tab))
@@ -84,6 +85,7 @@ class ExpenseController extends Controller
 
         $branches = Branch::active()->get();
         $openProjects = Project::accessibleBy($user)->whereIn('status', ['open', 'inprogress'])->get();
+        $vehicles = Vehicle::active()->orderBy('registration_number')->get();
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -102,6 +104,7 @@ class ExpenseController extends Controller
             'kpis',
             'branches',
             'openProjects',
+            'vehicles',
             'tab'
         ));
     }

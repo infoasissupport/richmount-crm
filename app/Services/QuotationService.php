@@ -7,8 +7,10 @@ use App\Models\Quotation;
 use App\Models\QuotationAttachment;
 use App\Models\QuotationHistory;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class QuotationService
 {
@@ -37,8 +39,17 @@ class QuotationService
             ]);
 
             // Add line items if provided
-            if (!empty($data['items']) && is_array($data['items'])) {
-                foreach ($data['items'] as $index => $item) {
+            if (! empty($data['items']) && is_array($data['items'])) {
+                $position = 0;
+                $items = $data['items'];
+                ksort($items);
+                foreach ($items as $item) {
+                    if ($section = $this->sectionRow($item, $position + 1)) {
+                        $quote->lineItems()->create($section);
+                        $position++;
+
+                        continue;
+                    }
                     $desc = trim($item['description'] ?? '');
                     $price = (float) ($item['unit_price'] ?? 0);
                     $qty = (float) ($item['quantity'] ?? 1);
@@ -46,7 +57,7 @@ class QuotationService
                         continue;
                     }
                     $quote->lineItems()->create([
-                        'sort_order' => $index + 1,
+                        'sort_order' => ++$position,
                         'description' => $desc !== '' ? $desc : 'Item specifications & scope',
                         'quantity' => $qty,
                         'unit' => $item['unit'] ?? 'nos',
@@ -92,7 +103,8 @@ class QuotationService
                 'validity_days' => $data['validity_days'] ?? $quotation->validity_days,
                 'output_type' => $data['output_type'] ?? $quotation->output_type,
                 'discount_type' => $data['discount_type'] ?? $quotation->discount_type,
-                'discount_value' => $data['discount_value'] ?? $quotation->discount_value,
+                // an emptied discount box arrives as null: that means no discount, not "keep the old one"
+                'discount_value' => array_key_exists('discount_value', $data) ? ($data['discount_value'] ?? 0) : $quotation->discount_value,
                 'vat_rate' => $data['vat_rate'] ?? $quotation->vat_rate,
                 'technical_description' => $data['technical_description'] ?? $quotation->technical_description,
                 'terms_conditions' => $data['terms_conditions'] ?? $quotation->terms_conditions,
@@ -102,14 +114,23 @@ class QuotationService
 
             if (isset($data['items']) && is_array($data['items'])) {
                 $quotation->lineItems()->delete();
-                foreach ($data['items'] as $index => $item) {
+                $position = 0;
+                $items = $data['items'];
+                ksort($items);
+                foreach ($items as $item) {
+                    if ($section = $this->sectionRow($item, $position + 1)) {
+                        $quotation->lineItems()->create($section);
+                        $position++;
+
+                        continue;
+                    }
                     if (empty(trim($item['description'] ?? ''))) {
                         continue;
                     }
                     $qty = (float) ($item['quantity'] ?? 1);
                     $price = (float) ($item['unit_price'] ?? 0);
                     $quotation->lineItems()->create([
-                        'sort_order' => $index + 1,
+                        'sort_order' => ++$position,
                         'description' => $item['description'],
                         'quantity' => $qty,
                         'unit' => $item['unit'] ?? 'nos',
@@ -159,6 +180,51 @@ class QuotationService
                 'file_size' => Storage::disk('public')->size($path),
             ]);
         }
+    }
+
+    /**
+     * A section heading row from the builder (type=section): just its title, no quantity / price / photos,
+     * so it never affects the totals. Null when the row isn't a section or its title is empty (dropped).
+     */
+    protected function sectionRow(array $item, int $sortOrder): ?array
+    {
+        $type = $item['type'] ?? 'item';
+
+        // Sub-description row: description-only, no pricing, belongs to the item above it
+        if ($type === 'subdesc') {
+            $desc = trim((string) ($item['description'] ?? ''));
+            if ($desc === '') {
+                return null; // skip blank sub-descs
+            }
+
+            return [
+                'sort_order' => $sortOrder,
+                'type' => 'subdesc',
+                'description' => mb_substr($desc, 0, 5000),
+                'quantity' => 0,
+                'unit' => '',
+                'unit_price' => 0,
+                'total_amount' => 0,
+            ];
+        }
+
+        if ($type !== 'section') {
+            return null;
+        }
+        $title = trim(strip_tags((string) ($item['description'] ?? '')));
+        if ($title === '') {
+            return null;
+        }
+
+        return [
+            'sort_order' => $sortOrder,
+            'type' => 'section',
+            'description' => mb_substr($title, 0, 200),
+            'quantity' => 0,
+            'unit' => '',
+            'unit_price' => 0,
+            'total_amount' => 0,
+        ];
     }
 
     /**
@@ -369,11 +435,18 @@ class QuotationService
 
     /**
      * Reopen an approved or sent quotation back into draft for editing.
+     *
+     * @param  list<UploadedFile>  $revisedScopeDocuments
      */
-    public function reopenQuote(Quotation $quotation, User $user, string $reason, ?int $engineerId = null): Quotation
-    {
-        return DB::transaction(function () use ($quotation, $user, $reason, $engineerId) {
-            if (!in_array($quotation->status, ['approved', 'sent'])) {
+    public function reopenQuote(
+        Quotation $quotation,
+        User $user,
+        string $reason,
+        ?int $engineerId = null,
+        array $revisedScopeDocuments = []
+    ): Quotation {
+        return DB::transaction(function () use ($quotation, $user, $reason, $engineerId, $revisedScopeDocuments) {
+            if (! in_array($quotation->status, ['approved', 'sent'])) {
                 throw new \InvalidArgumentException('Only approved or sent quotations can be reopened for editing.');
             }
 
@@ -384,7 +457,7 @@ class QuotationService
                 // If previously sent to customer, create revision number (e.g. QT-2026-0805_R1, _R2)
                 $base = preg_replace('/_R\d+$/', '', $quotation->quote_number);
                 if (preg_match('/_R(\d+)$/', $quotation->quote_number, $matches)) {
-                    $rev = ((int)$matches[1]) + 1;
+                    $rev = ((int) $matches[1]) + 1;
                 } else {
                     $rev = 1;
                 }
@@ -404,6 +477,24 @@ class QuotationService
             }
 
             $quotation->save();
+
+            foreach ($revisedScopeDocuments as $document) {
+                $extension = strtolower($document->getClientOriginalExtension());
+                $safeExtension = in_array($extension, QuotationAttachment::SAFE_EXTENSIONS, true)
+                    ? $extension
+                    : 'bin';
+                $path = $document->storeAs(
+                    'quotation_attachments',
+                    Str::random(40).'.'.$safeExtension,
+                    'public'
+                );
+
+                $quotation->attachments()->create([
+                    'file_name' => mb_substr($document->getClientOriginalName(), 0, 255),
+                    'file_path' => $path,
+                    'file_size' => $document->getSize(),
+                ]);
+            }
 
             // Sync lead stage back to draft
             if ($quotation->lead && in_array($quotation->lead->stage, ['approved', 'sent'])) {

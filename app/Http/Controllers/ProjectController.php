@@ -6,10 +6,11 @@ use App\Http\Requests\Project\CompleteWorkRequest;
 use App\Http\Requests\Project\RecordClientPoRequest;
 use App\Http\Requests\Project\StoreProjectRequest;
 use App\Models\Branch;
-use App\Models\Lead;
 use App\Models\Project;
 use App\Models\Quotation;
 use App\Models\User;
+use App\Models\Vehicle;
+use App\Services\AuditService;
 use App\Services\ProjectService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -33,15 +34,15 @@ class ProjectController extends Controller
         // 1. Projects Query
         $projectsQuery = Project::accessibleBy($user)
             ->with(['branch', 'assignedEngineer', 'quotation', 'lead'])
-            ->when($tab !== 'all', fn($q) => $q->where('status', $tab))
-            ->when($request->filled('branch_id'), fn($q) => $q->where('branch_id', $request->branch_id))
+            ->when($tab !== 'all', fn ($q) => $q->where('status', $tab))
+            ->when($request->filled('branch_id'), fn ($q) => $q->where('branch_id', $request->branch_id))
             ->when($request->filled('search'), function ($q) use ($request) {
-                $term = '%' . $request->search . '%';
+                $term = '%'.$request->search.'%';
                 $q->where(function ($sq) use ($term) {
                     $sq->where('project_number', 'like', $term)
-                       ->orWhere('name', 'like', $term)
-                       ->orWhere('client_name', 'like', $term)
-                       ->orWhere('client_po_number', 'like', $term);
+                        ->orWhere('name', 'like', $term)
+                        ->orWhere('client_name', 'like', $term)
+                        ->orWhere('client_po_number', 'like', $term);
                 });
             })
             ->latest();
@@ -57,18 +58,26 @@ class ProjectController extends Controller
             ->get();
 
         // (b) Projects waiting for PO
-        $projectsAwaitingPo = Project::accessibleBy($user)
+        $projectsAwaitingPoQuery = Project::accessibleBy($user)
             ->where('status', 'popending')
             ->with(['lead', 'quotation', 'branch'])
-            ->get();
+            ->latest();
+
+        if ($request->wantsJson()) {
+            $projectsAwaitingPo = $projectsAwaitingPoQuery->get();
+            $projectsAwaitingPoCount = $projectsAwaitingPo->count();
+        } else {
+            $projectsAwaitingPo = $projectsAwaitingPoQuery->paginate(15, ['*'], 'awaiting_po_page');
+            $projectsAwaitingPoCount = $projectsAwaitingPo->total();
+        }
 
         // 3. KPIs
         $baseKpi = Project::accessibleBy($user);
         $kpis = [
             'active_projects' => (clone $baseKpi)->whereIn('status', ['open', 'inprogress'])->count(),
-            'awaiting_activation' => $awardedWithoutProject->count() + $projectsAwaitingPo->count(),
+            'awaiting_activation' => $awardedWithoutProject->count() + $projectsAwaitingPoCount,
             'completed_projects' => (clone $baseKpi)->whereIn('status', ['completed', 'closed'])->count(),
-            'total_invoiced' => (clone $baseKpi)->with('invoices')->get()->sum(fn($p) => $p->totalInvoiced()),
+            'total_invoiced' => (clone $baseKpi)->with('invoices')->get()->sum(fn ($p) => $p->totalInvoiced()),
         ];
 
         $branches = Branch::active()->get();
@@ -99,7 +108,38 @@ class ProjectController extends Controller
      */
     public function store(StoreProjectRequest $request): RedirectResponse|JsonResponse
     {
-        $project = $this->projectService->createProject($request->validated(), $request->user());
+        $data = $request->validated();
+        $poFile = $data['po_file'] ?? null;
+        $projectDocuments = $data['project_documents'] ?? [];
+        unset($data['po_file'], $data['project_documents']);
+
+        if ($poFile) {
+            $data['client_po_file'] = $poFile->store('project_po', 'public');
+        }
+
+        $project = $this->projectService->createProject($data, $request->user());
+
+        if ($poFile) {
+            $project->documents()->create([
+                'file_name' => $poFile->getClientOriginalName(),
+                'file_path' => $data['client_po_file'],
+                'file_size' => $poFile->getSize(),
+                'file_type' => $poFile->getClientMimeType(),
+                'kind' => 'po',
+                'uploaded_by_id' => $request->user()->id,
+            ]);
+        }
+
+        foreach ($projectDocuments as $document) {
+            $project->documents()->create([
+                'file_name' => $document->getClientOriginalName(),
+                'file_path' => $document->store('project_documents', 'public'),
+                'file_size' => $document->getSize(),
+                'file_type' => $document->getClientMimeType(),
+                'kind' => 'general',
+                'uploaded_by_id' => $request->user()->id,
+            ]);
+        }
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -110,6 +150,41 @@ class ProjectController extends Controller
         }
 
         return redirect()->route('projects.show', $project)->with('toast_success', "Project {$project->project_number} created.");
+    }
+
+    /**
+     * Update editable project details.
+     */
+    public function update(Request $request, Project $project): RedirectResponse|JsonResponse
+    {
+        $this->authorize('update', $project);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:200'],
+            'client_name' => ['required', 'string', 'max:150'],
+            'branch_id' => ['required', 'exists:branches,id'],
+            'engineer_id' => ['nullable', 'exists:users,id'],
+            'contract_value' => ['required', 'numeric', 'min:0'],
+            'start_date' => ['nullable', 'date'],
+            'expected_end_date' => ['nullable', 'date'],
+            'description' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $oldValues = $project->only(array_keys($validated));
+        $project->update($validated);
+        $project->refresh();
+
+        AuditService::log('updated', $project, "Updated project {$project->project_number}", $oldValues, $project->only(array_keys($validated)));
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Project {$project->project_number} updated.",
+                'project' => $project,
+            ]);
+        }
+
+        return redirect()->route('projects.index')->with('toast_success', "Project {$project->project_number} updated successfully.");
     }
 
     /**
@@ -135,7 +210,7 @@ class ProjectController extends Controller
     /**
      * Display the specified project.
      */
-    public function show(Project $project): View|JsonResponse
+    public function show(Request $request, Project $project): View|JsonResponse
     {
         $this->authorize('view', $project);
 
@@ -144,20 +219,64 @@ class ProjectController extends Controller
             'assignedEngineer',
             'lead',
             'quotation',
-            'documents.uploadedBy',
-            'activities.user',
-            'purchaseOrders.preparedBy',
             'workCompletionCertificates.engineer',
-            'invoices.lineItems',
-            'invoices.payments',
-            'expenses.user',
         ]);
 
-        if (request()->wantsJson()) {
+        if ($request->wantsJson()) {
+            $project->load([
+                'documents.uploadedBy',
+                'activities.user',
+                'purchaseOrders.preparedBy',
+                'invoices.lineItems',
+                'invoices.payments',
+                'expenses.user',
+            ]);
+
             return response()->json($project);
         }
 
-        return view('projects.show', compact('project'));
+        $projectTotals = [
+            'total_invoiced' => (float) $project->invoices()->whereNotIn('status', ['draft', 'void'])->sum('grand_total'),
+            'total_expenses' => (float) $project->expenses()->where('status', 'approved')->sum('grand_total'),
+            'sent_invoice_count' => $project->invoices()->where('status', 'sent')->count(),
+        ];
+        $vendorPurchaseOrders = $project->purchaseOrders()
+            ->with('preparedBy')
+            ->paginate(10, ['*'], 'vendor_pos_page');
+        $expenseSearch = $request->query('expense_search');
+        $expenseSearch = is_string($expenseSearch) ? trim($expenseSearch) : '';
+        $expenseStatus = $request->query('expense_status');
+        $expenseStatus = is_string($expenseStatus) && in_array($expenseStatus, ['pending', 'approved', 'rejected'], true)
+            ? $expenseStatus
+            : '';
+
+        $projectExpensesQuery = $project->expenses()
+            ->with(['user', 'vehicle'])
+            ->when($expenseStatus !== '', fn ($query) => $query->where('status', $expenseStatus))
+            ->when($expenseSearch !== '', function ($query) use ($expenseSearch) {
+                $query->where(function ($query) use ($expenseSearch) {
+                    $query->where('expense_number', 'like', "%{$expenseSearch}%")
+                        ->orWhere('category', 'like', "%{$expenseSearch}%")
+                        ->orWhere('vendor_name', 'like', "%{$expenseSearch}%")
+                        ->orWhere('description', 'like', "%{$expenseSearch}%");
+                });
+            });
+        $projectExpenses = $projectExpensesQuery->paginate(10, ['*'], 'project_expenses_page');
+        $projectInvoices = $project->invoices()
+            ->with(['lineItems', 'payments'])
+            ->paginate(10, ['*'], 'project_invoices_page');
+        $vehicles = Vehicle::active()->orderBy('registration_number')->get();
+
+        return view('projects.show', compact(
+            'project',
+            'projectTotals',
+            'vendorPurchaseOrders',
+            'projectExpenses',
+            'projectInvoices',
+            'vehicles',
+            'expenseSearch',
+            'expenseStatus'
+        ));
     }
 
     /**
@@ -181,7 +300,7 @@ class ProjectController extends Controller
             ]);
         }
 
-        return redirect()->route('projects.show', $project)->with('toast_success', "Client PO recorded. Project is now Open.");
+        return redirect()->route('projects.show', $project)->with('toast_success', 'Client PO recorded. Project is now Open.');
     }
 
     /**
@@ -240,12 +359,27 @@ class ProjectController extends Controller
     {
         $this->authorize('update', $project);
 
-        $this->projectService->completeWork($project, $request->validated(), $request->user());
+        $data = $request->validated();
+        $projectDocuments = $data['project_documents'] ?? [];
+        unset($data['project_documents']);
 
-        if ($request->wantsJson()) {
-            return response()->json(['success' => true, 'message' => "Work completed report recorded."]);
+        $this->projectService->completeWork($project, $data, $request->user());
+
+        foreach ($projectDocuments as $document) {
+            $project->documents()->create([
+                'file_name' => $document->getClientOriginalName(),
+                'file_path' => $document->store('project_documents', 'public'),
+                'file_size' => $document->getSize(),
+                'file_type' => $document->getClientMimeType(),
+                'kind' => 'completion',
+                'uploaded_by_id' => $request->user()->id,
+            ]);
         }
 
-        return redirect()->route('projects.show', $project)->with('toast_success', "Work Completion Certificate generated. Project ready for billing.");
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Work completed report recorded.']);
+        }
+
+        return redirect()->route('projects.show', $project)->with('toast_success', 'Work Completion Certificate generated. Project ready for billing.');
     }
 }

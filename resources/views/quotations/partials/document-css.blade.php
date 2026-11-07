@@ -19,6 +19,11 @@
 .qd-items .c { text-align: center; }
 .qd-items .r { text-align: right; font-weight: 700; white-space: nowrap; }
 .qd-items td.d { width: 45%; } /* rich text from the line item editor; line breaks are <br> */
+/* section heading row in the items table (e.g. PRELIMINARIES) */
+.qd-items tr.sect td { color: #C00000; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .3px; padding: 8px 8px; background: #fff; }
+/* line item photos (up to 3) under the description */
+.qd-photos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.qd-photos img { width: 78px; height: 58px; object-fit: cover; border: 1px solid #bbb; border-radius: 2px; background: #fff; }
 .qd-items .sum td { background: #DDF3E3; font-weight: 700; }
 .qd-items .grand td { background: #C9EDD3; font-weight: 700; }
 .qd-items .words td { background: #DDF3E3; text-align: center; font-weight: 700; font-size: 11px; }

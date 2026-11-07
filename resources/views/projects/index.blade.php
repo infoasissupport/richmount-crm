@@ -12,15 +12,6 @@
 <section class="page-head" id="pageHead">
     <div>
         <h1>Projects</h1>
-        <p class="sub">Create projects from awarded quotations, record the PO and follow each project to closure.</p>
-    </div>
-    <div class="page-actions">
-        @can('projects.create')
-        <button class="btn btn-primary" type="button" onclick="openNewProjectModal()">
-            <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-briefcase"/></svg>
-            Create Project
-        </button>
-        @endcan
     </div>
 </section>
 
@@ -35,7 +26,6 @@
             </span>
             <span class="kpi-value">{{ $kpis['active_projects'] }}</span>
             <span class="kpi-label">Active Projects</span>
-            <span class="kpi-note">Open & In Progress</span>
         </div>
 
         <div class="kpi static">
@@ -46,7 +36,6 @@
             </span>
             <span class="kpi-value">{{ $kpis['awaiting_activation'] }}</span>
             <span class="kpi-label">Awaiting Activation</span>
-            <span class="kpi-note">Awarded or PO pending</span>
         </div>
 
         <div class="kpi static">
@@ -57,7 +46,6 @@
             </span>
             <span class="kpi-value">{{ $kpis['completed_projects'] }}</span>
             <span class="kpi-label">Completed Projects</span>
-            <span class="kpi-note">Work finished or closed</span>
         </div>
 
         <div class="kpi static">
@@ -68,7 +56,6 @@
             </span>
             <span class="kpi-value">AED {{ number_format($kpis['total_invoiced'], 0) }}</span>
             <span class="kpi-label">Total Invoiced</span>
-            <span class="kpi-note">Across all projects</span>
         </div>
     </section>
 
@@ -82,11 +69,7 @@
                 Awaiting Project / PO
             </h2>
         </header>
-        <p class="lock-note" style="margin: 0 16px 12px 16px; font-size: 11.5px; color: var(--muted);">
-            Awarded &rarr; Create Project &rarr; PO received &rarr; Open. The Accountant creates the project and records the PO.
-        </p>
-
-        <div class="table-wrap">
+        <div class="table-wrap page">
             <table class="table" style="font-size: 12px;">
                 <thead>
                     <tr>
@@ -150,6 +133,36 @@
                             <td class="num"><b>{{ number_format($p->contract_value, 2) }}</b></td>
                             <td>{{ $p->created_at->format('d M Y') }}</td>
                             <td class="ta-c">
+                                <span class="row-actions">
+                                    <span class="project-action-menu">
+                                        <button class="act" type="button" title="Project actions" aria-label="Project actions for {{ $p->project_number }}" aria-haspopup="menu" aria-expanded="false" onclick="toggleProjectActionMenu(event, this)">
+                                            <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-more-vertical"/></svg>
+                                        </button>
+                                        <div class="popover row-menu" role="menu" hidden>
+                                            <a class="pop-item" role="menuitem" href="{{ route('projects.show', $p) }}">
+                                                <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"/></svg>
+                                                <span>View project</span>
+                                            </a>
+                                            @can('update', $p)
+                                            <button class="pop-item" type="button" role="menuitem" onclick="closeProjectActionMenu(); openEditProjectModal(this)"
+                                                data-project-id="{{ $p->id }}"
+                                                data-project-number="{{ $p->project_number }}"
+                                                data-project-name="{{ $p->name }}"
+                                                data-client-name="{{ $p->client_name }}"
+                                                data-branch-id="{{ $p->branch_id }}"
+                                                data-engineer-id="{{ $p->engineer_id }}"
+                                                data-contract-value="{{ $p->contract_value }}"
+                                                data-start-date="{{ $p->start_date?->format('Y-m-d') }}"
+                                                data-expected-end-date="{{ $p->expected_end_date?->format('Y-m-d') }}"
+                                                data-description="{{ $p->description }}"
+                                                data-client-po-number="{{ $p->client_po_number }}"
+                                                data-status-label="{{ $p->statusLabel() }}">
+                                                <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"/></svg>
+                                                <span>Edit project</span>
+                                            </button>
+                                            @endcan
+                                        </div>
+                                    </span>
                                 @can('projects.open')
                                 <button class="btn btn-soft btn-sm" type="button" onclick="openRecordPoModal({{ json_encode($p) }})">
                                     <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-plus"/></svg>
@@ -158,6 +171,7 @@
                                 @else
                                 <span style="color:var(--muted)">Accountant only</span>
                                 @endcan
+                                </span>
                             </td>
                         </tr>
                     @endforeach
@@ -172,11 +186,13 @@
                 </tbody>
             </table>
         </div>
+
+        {{ $projectsAwaitingPo->withQueryString()->links() }}
     </section>
 
     {{-- All Projects Table with status tabs --}}
-    <section class="card fill" id="projectsTable" style="margin-top: 20px;">
-        <header class="card-head">
+    <section class="card fill" id="projectsTable" >
+        <header class="card-head recent-head">
             <h2>
                 <span class="head-ic">
                     <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-clipboard"/></svg>
@@ -184,38 +200,31 @@
                 All Projects
             </h2>
 
-            <div class="card-actions">
-                <form method="GET" action="{{ route('projects.index') }}" style="display: flex; gap: 8px;">
-                    <input type="hidden" name="tab" value="{{ $tab }}">
-                    <input class="input sm" type="search" name="search" placeholder="Search projects..." value="{{ request('search') }}" style="width: 220px;">
+            <div class="head-actions">
+                <form method="GET" action="{{ route('projects.index') }}" class="recent-filters">
+                    <label class="search-input recent-search">
+                        <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg>
+                        <input type="search" name="search" placeholder="Search projects..." value="{{ request('search') }}" aria-label="Search projects" onchange="this.form.submit()">
+                    </label>
+
+                    <span class="select-wrap mini with-icon">
+                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-filter"/></svg>
+                        <select name="tab" aria-label="Filter projects by status" onchange="this.form.submit()">
+                            <option value="all" {{ $tab === 'all' ? 'selected' : '' }}>All Statuses</option>
+                            <option value="popending" {{ $tab === 'popending' ? 'selected' : '' }}>PO Pending</option>
+                            <option value="open" {{ $tab === 'open' ? 'selected' : '' }}>Open</option>
+                            <option value="inprogress" {{ $tab === 'inprogress' ? 'selected' : '' }}>In Progress</option>
+                            <option value="onhold" {{ $tab === 'onhold' ? 'selected' : '' }}>On Hold</option>
+                            <option value="completed" {{ $tab === 'completed' ? 'selected' : '' }}>Work Completed</option>
+                            <option value="invoicepending" {{ $tab === 'invoicepending' ? 'selected' : '' }}>Invoice Pending</option>
+                            <option value="closed" {{ $tab === 'closed' ? 'selected' : '' }}>Closed</option>
+                        </select>
+                    </span>
                 </form>
             </div>
         </header>
 
-        {{-- Status Tabs --}}
-        <div class="table-tabs" style="display: flex; gap: 8px; border-bottom: 1px solid var(--border); padding: 0 16px 8px 16px; margin-bottom: 12px; overflow-x: auto;">
-            @php
-                $statuses = [
-                    'all' => 'All',
-                    'popending' => 'PO Pending',
-                    'open' => 'Open',
-                    'inprogress' => 'In Progress',
-                    'onhold' => 'On Hold',
-                    'completed' => 'Work Completed',
-                    'invoicepending' => 'Invoice Pending',
-                    'closed' => 'Closed',
-                ];
-            @endphp
-            @foreach($statuses as $sKey => $sLabel)
-                <a href="{{ route('projects.index', ['tab' => $sKey, 'search' => request('search')]) }}"
-                   class="tab-link {{ $tab === $sKey ? 'active' : '' }}"
-                   style="padding: 6px 14px; font-size: 11.5px; border-radius: 6px; text-decoration: none; color: {{ $tab === $sKey ? '#fff' : 'var(--text)' }}; background: {{ $tab === $sKey ? 'var(--primary)' : 'var(--bg-subtle)' }}; font-weight: 500;">
-                    {{ $sLabel }}
-                </a>
-            @endforeach
-        </div>
-
-        <div class="table-wrap">
+        <div class="table-wrap page">
             <table class="table">
                 <thead>
                     <tr>
@@ -260,9 +269,28 @@
                                 </span>
                             </td>
                             <td class="ta-c">
-                                <a class="act view" href="{{ route('projects.show', $p) }}" title="Open Project" aria-label="Open">
-                                    <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"/></svg>
-                                </a>
+                                <span class="row-actions">
+                                    <a class="act view" href="{{ route('projects.show', $p) }}" title="View Project" aria-label="View project {{ $p->project_number }}">
+                                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"/></svg>
+                                    </a>
+                                    @can('update', $p)
+                                    <button class="act edit" type="button" title="Edit Project" aria-label="Edit project {{ $p->project_number }}" onclick="openEditProjectModal(this)"
+                                        data-project-id="{{ $p->id }}"
+                                        data-project-number="{{ $p->project_number }}"
+                                        data-project-name="{{ $p->name }}"
+                                        data-client-name="{{ $p->client_name }}"
+                                        data-branch-id="{{ $p->branch_id }}"
+                                        data-engineer-id="{{ $p->engineer_id }}"
+                                        data-contract-value="{{ $p->contract_value }}"
+                                        data-start-date="{{ $p->start_date?->format('Y-m-d') }}"
+                                        data-expected-end-date="{{ $p->expected_end_date?->format('Y-m-d') }}"
+                                        data-description="{{ $p->description }}"
+                                        data-client-po-number="{{ $p->client_po_number }}"
+                                        data-status-label="{{ $p->statusLabel() }}">
+                                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"/></svg>
+                                    </button>
+                                    @endcan
+                                </span>
                             </td>
                         </tr>
                     @empty
@@ -280,6 +308,96 @@
             {{ $projects->withQueryString()->links() }}
         @endif
     </section>
+</div>
+
+{{-- Edit Project Modal --}}
+<div class="modal-wrap" id="editProjectModal" style="display: none;" onclick="if(event.target === this) closeEditProjectModal()">
+    <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="editProjectTitle">
+        <div class="modal-head">
+            <div>
+                <h3 id="editProjectTitle">Edit Project</h3>
+                <p>Update project details</p>
+            </div>
+            <button class="icon-btn" type="button" onclick="closeEditProjectModal()" aria-label="Close">
+                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+            </button>
+        </div>
+
+        <form id="editProjectForm" action="" method="POST">
+            @csrf
+            @method('PUT')
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="field span-2">
+                        <label class="label req" for="editProjectName">Project Name / Subject</label>
+                        <input class="input" id="editProjectName" name="name" type="text" required maxlength="200">
+                    </div>
+
+                    <div class="field">
+                        <label class="label req" for="editProjectClient">Client / Customer Name</label>
+                        <input class="input" id="editProjectClient" name="client_name" type="text" required maxlength="150">
+                    </div>
+
+                    <div class="field">
+                        <label class="label req" for="editProjectBranch">Branch</label>
+                        <select class="select" id="editProjectBranch" name="branch_id" required>
+                            @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label class="label req" for="editProjectValue">Contract Value (AED)</label>
+                        <input class="input" id="editProjectValue" name="contract_value" type="number" step="0.01" min="0" required>
+                    </div>
+
+                    <div class="field">
+                        <label class="label" for="editProjectEngineer">Assigned Project Engineer</label>
+                        <select class="select" id="editProjectEngineer" name="engineer_id">
+                            <option value="">Select Project Engineer</option>
+                            @foreach($engineers as $engineer)
+                                <option value="{{ $engineer->id }}">{{ $engineer->name }} ({{ $engineer->branch?->short_name ?? 'No branch' }})</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label class="label" for="editProjectPoNumber">Client PO / LPO Number</label>
+                        <input class="input" id="editProjectPoNumber" type="text" disabled>
+                    </div>
+
+                    <div class="field">
+                        <label class="label" for="editProjectStartDate">Target Start Date</label>
+                        <input class="input" id="editProjectStartDate" name="start_date" type="date">
+                    </div>
+
+                    <div class="field">
+                        <label class="label" for="editProjectEndDate">Target Completion Date</label>
+                        <input class="input" id="editProjectEndDate" name="expected_end_date" type="date">
+                    </div>
+
+                    <div class="field">
+                        <span class="label">Current Status</span>
+                        <input class="input" id="editProjectStatus" type="text" disabled>
+                    </div>
+
+                    <div class="field span-2">
+                        <label class="label" for="editProjectDescription">Scope of Work & Notes</label>
+                        <textarea class="textarea" id="editProjectDescription" name="description" rows="3" maxlength="2000"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-foot">
+                <button class="btn btn-ghost" type="button" onclick="closeEditProjectModal()">Cancel</button>
+                <button class="btn btn-primary" type="submit">
+                    <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 {{-- Create Project Modal --}}
@@ -377,7 +495,6 @@
         <div class="modal-head">
             <div>
                 <h3 id="recordPoTitle">Record Client PO</h3>
-                <p id="recordPoSub">Enter official PO details to open project</p>
             </div>
             <button class="icon-btn" type="button" onclick="closeRecordPoModal()" aria-label="Close">
                 <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
@@ -422,6 +539,71 @@
 </div>
 
 <script>
+    let activeProjectActionMenu = null;
+
+    function closeProjectActionMenu() {
+        if (!activeProjectActionMenu) return;
+        activeProjectActionMenu.menu.hidden = true;
+        activeProjectActionMenu.button.setAttribute('aria-expanded', 'false');
+        activeProjectActionMenu = null;
+    }
+
+    function toggleProjectActionMenu(event, button) {
+        event.stopPropagation();
+        if (activeProjectActionMenu?.button === button) {
+            closeProjectActionMenu();
+            return;
+        }
+
+        closeProjectActionMenu();
+        const menu = button.nextElementSibling;
+        menu.hidden = false;
+        const bounds = button.getBoundingClientRect();
+        const menuWidth = menu.offsetWidth;
+        const menuHeight = menu.offsetHeight;
+        let top = bounds.bottom + 6;
+        if (top + menuHeight > window.innerHeight - 8) {
+            top = Math.max(8, bounds.top - menuHeight - 6);
+        }
+
+        menu.style.left = Math.max(8, Math.min(bounds.right - menuWidth, window.innerWidth - menuWidth - 8)) + 'px';
+        menu.style.top = top + 'px';
+        button.setAttribute('aria-expanded', 'true');
+        activeProjectActionMenu = { button, menu };
+    }
+
+    document.addEventListener('click', function (event) {
+        if (!event.target.closest('.project-action-menu')) closeProjectActionMenu();
+    });
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') closeProjectActionMenu();
+    });
+    document.addEventListener('scroll', closeProjectActionMenu, { passive: true, capture: true });
+    window.addEventListener('resize', closeProjectActionMenu);
+
+    function openEditProjectModal(button) {
+        const project = button.dataset;
+        const form = document.getElementById('editProjectForm');
+
+        document.getElementById('editProjectTitle').textContent = 'Edit Project · ' + project.projectNumber;
+        document.getElementById('editProjectName').value = project.projectName;
+        document.getElementById('editProjectClient').value = project.clientName;
+        document.getElementById('editProjectBranch').value = project.branchId;
+        document.getElementById('editProjectEngineer').value = project.engineerId;
+        document.getElementById('editProjectValue').value = project.contractValue;
+        document.getElementById('editProjectPoNumber').value = project.clientPoNumber || 'Not recorded';
+        document.getElementById('editProjectStartDate').value = project.startDate;
+        document.getElementById('editProjectEndDate').value = project.expectedEndDate;
+        document.getElementById('editProjectStatus').value = project.statusLabel;
+        document.getElementById('editProjectDescription').value = project.description;
+        form.action = '/projects/' + project.projectId;
+        document.getElementById('editProjectModal').style.display = 'grid';
+    }
+
+    function closeEditProjectModal() {
+        document.getElementById('editProjectModal').style.display = 'none';
+    }
+
     function openNewProjectModal() {
         document.getElementById('projectModal').style.display = 'grid';
     }
@@ -432,7 +614,6 @@
 
     function openRecordPoModal(project) {
         document.getElementById('recordPoTitle').textContent = 'Record PO · ' + project.project_number;
-        document.getElementById('recordPoSub').textContent = project.client_name + ' &bull; Contract: AED ' + (project.contract_value || 0).toLocaleString();
         document.getElementById('recordPoForm').action = '/projects/' + project.id + '/po';
         document.getElementById('inPoAmount').value = project.contract_value || '';
         document.getElementById('recordPoModal').style.display = 'grid';

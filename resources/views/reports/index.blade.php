@@ -12,19 +12,23 @@
 <section class="page-head" id="pageHead">
     <div>
         <h1>Reports & Analytics</h1>
-        <p class="sub">Audited financial summaries, project margins, petty cash ledgers, and UAE VAT returns.</p>
+    
     </div>
     <div class="page-actions">
-        <a class="btn btn-ghost" href="{{ route('reports.export', ['type' => $reportType]) }}">
+        <a class="btn btn-ghost" href="{{ route('reports.export', array_merge(['type' => $reportType], request()->query())) }}">
             <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-download"/></svg>
-            Export CSV
+            Export Excel
+        </a>
+        <a class="btn btn-ghost" href="{{ route('reports.pdf', array_merge(['type' => $reportType], request()->query())) }}">
+            <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-text"/></svg>
+            Download PDF
         </a>
     </div>
 </section>
 
 <div class="dash-scroll">
     {{-- Report Navigation Tabs --}}
-    <div class="table-tabs" style="display: flex; gap: 8px; margin-bottom: 20px;">
+    <div class="table-tabs" style="display: flex; gap: 8px; margin-bottom: 0px;">
         <a href="{{ route('reports.index', ['type' => 'profitability']) }}"
            class="tab-link {{ $reportType === 'profitability' ? 'active' : '' }}"
            style="padding: 8px 16px; font-size: 12px; border-radius: 6px; text-decoration: none; color: {{ $reportType === 'profitability' ? '#fff' : 'var(--text)' }}; background: {{ $reportType === 'profitability' ? 'var(--primary)' : 'var(--bg-subtle)' }}; font-weight: 500; display: inline-flex; align-items: center; gap: 6px;">
@@ -46,68 +50,61 @@
     </div>
 
     @if($reportType === 'profitability')
-        {{-- Report 1: Project Profitability --}}
         @php
             $totalContract = collect($data)->sum('contract_value');
-            $totalInvoiced = collect($data)->sum('invoiced');
-            $totalCost = collect($data)->sum('total_cost');
-            $totalProfit = collect($data)->sum('profit');
-            $avgMargin = $totalContract > 0 ? round(($totalProfit / $totalContract) * 100, 1) : 0;
+            $totalInvoiced = collect($data)->sum('total_invoiced');
+            $totalReceived = collect($data)->sum('total_received');
+            $totalExpenses = collect($data)->sum('total_expenses');
+            $totalOutstanding = collect($data)->sum('outstanding_amount');
+            $totalProfit = collect($data)->sum('net_profit');
+            $avgMargin = $totalInvoiced > 0 ? round(($totalProfit / $totalInvoiced) * 100, 2) : 0;
         @endphp
 
-        <section class="kpi-grid four" aria-label="Profitability KPIs">
+        <section class="kpi-grid five" aria-label="Project Financial KPIs">
             <div class="kpi static">
-                <span class="kpi-top">
-                    <span class="kpi-icon">
-                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-briefcase"/></svg>
-                    </span>
-                </span>
+                <span class="kpi-top"><span class="kpi-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-briefcase"/></svg></span></span>
                 <span class="kpi-value">AED {{ number_format($totalContract, 2) }}</span>
-                <span class="kpi-label">Total Contract Value</span>
-                <span class="kpi-note">{{ count($data) }} active & completed projects</span>
+                <span class="kpi-label">Contract Amount</span>
+             
             </div>
 
             <div class="kpi static">
-                <span class="kpi-top">
-                    <span class="kpi-icon" style="background: rgba(16, 185, 129, 0.12); color: #10b981;">
-                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-file-text"/></svg>
-                    </span>
-                </span>
+                <span class="kpi-top"><span class="kpi-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-file-text"/></svg></span></span>
                 <span class="kpi-value">AED {{ number_format($totalInvoiced, 2) }}</span>
                 <span class="kpi-label">Total Invoiced</span>
-                <span class="kpi-note">Progress & final billings</span>
+          
             </div>
 
             <div class="kpi static">
-                <span class="kpi-top">
-                    <span class="kpi-icon" style="background: rgba(239, 68, 68, 0.12); color: #ef4444;">
-                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-wallet"/></svg>
-                    </span>
-                </span>
-                <span class="kpi-value">AED {{ number_format($totalCost, 2) }}</span>
-                <span class="kpi-label">Total Job Cost</span>
-                <span class="kpi-note">Allocated expenses & purchases</span>
+                <span class="kpi-top"><span class="kpi-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-coins"/></svg></span></span>
+                <span class="kpi-value">AED {{ number_format($totalReceived, 2) }}</span>
+                <span class="kpi-label">Total Received</span>
+          
             </div>
 
             <div class="kpi static">
-                <span class="kpi-top">
-                    <span class="kpi-icon" style="background: rgba(59, 130, 246, 0.12); color: #3b82f6;">
-                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-trending-up"/></svg>
-                    </span>
-                </span>
-                <span class="kpi-value">AED {{ number_format($totalProfit, 2) }}</span>
-                <span class="kpi-label">Net Gross Profit ({{ $avgMargin }}%)</span>
-                <span class="kpi-note">Average realized margin</span>
+                <span class="kpi-top"><span class="kpi-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-wallet"/></svg></span></span>
+                <span class="kpi-value">AED {{ number_format($totalExpenses, 2) }}</span>
+                <span class="kpi-label">Total Project Expenses</span>
+         
+            </div>
+
+            <div class="kpi static">
+                <span class="kpi-top"><span class="kpi-icon"><svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="#i-trending-up"/></svg></span></span>
+                <span class="kpi-value" style="color: {{ $totalProfit >= 0 ? '#10b981' : '#ef4444' }};">AED {{ number_format($totalProfit, 2) }}</span>
+                <span class="kpi-label">Net Profit ({{ $avgMargin }}%)</span>
+         
             </div>
         </section>
 
-        <section class="card" style="margin-top: 20px;">
+        <section class="card">
             <header class="card-head">
                 <h2>Project Job-Costing & Profit Margin Analysis</h2>
+             
             </header>
 
-            <div class="table-wrap">
-                <table class="table" style="font-size: 11.5px;">
+            <div class="table-wrap recent-wrap">
+                <table class="table report-table">
                     <thead>
                         <tr>
                             <th>Project No</th>
@@ -116,47 +113,60 @@
                             <th>Branch</th>
                             <th>Status</th>
                             <th class="num">Contract (AED)</th>
-                            <th class="num">Invoiced (AED)</th>
-                            <th class="num">Total Cost (AED)</th>
-                            <th class="num">Profit (AED)</th>
-                            <th class="num">Margin %</th>
+                            <th class="num">Total Invoiced (AED)</th>
+                            <th class="num">Total Received (AED)</th>
+                            <th class="num">Total Expenses (AED)</th>
+                            <th class="num">Outstanding (AED)</th>
+                            <th class="num">Net Profit (AED)</th>
+                            <th class="num">Profit Margin %</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($data as $row)
+                        @forelse($projectRows as $row)
                             <tr>
                                 <td class="strong">
-                                    <a href="{{ route('projects.show', $row['project_id']) }}" style="color: var(--primary); text-decoration: none;">
+                                    <a class="report-project-id" href="{{ route('reports.project', $row['project_id']) }}">
                                         {{ $row['project_number'] }}
                                     </a>
                                 </td>
-                                <td><b>{{ $row['name'] }}</b></td>
+                                <td><b><a class="report-project-name" href="{{ route('reports.project', $row['project_id']) }}">{{ $row['name'] }}</a></b></td>
                                 <td>{{ $row['client'] }}</td>
                                 <td>{{ $row['branch'] }}</td>
                                 <td><span class="pill pill-info">{{ ucfirst($row['status']) }}</span></td>
                                 <td class="num">{{ number_format($row['contract_value'], 2) }}</td>
-                                <td class="num">{{ number_format($row['invoiced'], 2) }}</td>
-                                <td class="num">{{ number_format($row['total_cost'], 2) }}</td>
-                                <td class="num" style="color: {{ $row['profit'] >= 0 ? '#10b981' : '#ef4444' }};">
-                                    <b>{{ number_format($row['profit'], 2) }}</b>
+                                <td class="num">{{ number_format($row['total_invoiced'], 2) }}</td>
+                                <td class="num">{{ number_format($row['total_received'], 2) }}</td>
+                                <td class="num">{{ number_format($row['total_expenses'], 2) }}</td>
+                                <td class="num">{{ number_format($row['outstanding_amount'], 2) }}</td>
+                                <td class="num" style="color: {{ $row['net_profit'] >= 0 ? '#10b981' : '#ef4444' }};"><b>{{ number_format($row['net_profit'], 2) }}</b></td>
+                                <td class="num" style="color: {{ $row['profit_margin'] >= 15 ? '#10b981' : ($row['profit_margin'] >= 5 ? '#f59e0b' : '#ef4444') }};">
+                                    <b>{{ number_format($row['profit_margin'], 2) }}%</b>
                                 </td>
-                                <td class="num" style="color: {{ $row['margin_pct'] >= 15 ? '#10b981' : ($row['margin_pct'] >= 5 ? '#f59e0b' : '#ef4444') }};">
-                                    <b>{{ $row['margin_pct'] }}%</b>
+                                <td class="ta-c">
+                                    <span class="row-actions">
+                                        <a class="act view" href="{{ route('reports.project', $row['project_id']) }}" title="View project details" aria-label="View {{ $row['project_number'] }} details">
+                                            <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"/></svg>
+                                        </a>
+                                    </span>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="10" class="ta-c" style="padding: 24px; color: var(--muted);">No project data available for margin analysis.</td>
+                                <td colspan="13" class="ta-c" style="padding: 24px; color: var(--muted);">No project data available for financial analysis.</td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
+            @if($projectRows->total() > 0)
+                {{ $projectRows->links() }}
+            @endif
         </section>
 
     @elseif($reportType === 'vat')
         {{-- Report 2: UAE FTA VAT Summary --}}
-        <section class="card" style="max-width: 800px; margin: 0 auto;">
+        <section class="card">
             <header class="card-head">
                 <h2>
                     <span class="head-ic">
@@ -167,8 +177,8 @@
                 <span class="pill pill-info">{{ $data['tax_period'] }}</span>
             </header>
 
-            <div style="padding: 20px;">
-                <p style="font-size: 12.5px; color: var(--muted); margin-bottom: 20px;">
+            <div >
+                <p style="font-size: 12.5px; color: var(--muted); margin-bottom: 10px;">
                     Summary of Standard Rated supplies (5% UAE VAT) generated from client tax invoices and input VAT recoverable on commercial project expenses.
                 </p>
 
@@ -216,7 +226,7 @@
 
     @elseif($reportType === 'cash')
         {{-- Report 3: Engineer Cash in Hand Ledgers --}}
-        <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
             @forelse($data as $engLedger)
                 <section class="card">
                     <header class="card-head" style="justify-content: space-between;">
@@ -248,7 +258,7 @@
                         </div>
                     </header>
 
-                    <div class="table-wrap">
+                    <div class="table-wrap page">
                         <table class="table" style="font-size: 11px;">
                             <thead>
                                 <tr>
@@ -284,6 +294,7 @@
                             </tbody>
                         </table>
                     </div>
+                    {{ $engLedger['history']->links() }}
                 </section>
             @empty
                 <section class="card">

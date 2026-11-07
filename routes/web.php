@@ -95,6 +95,7 @@ Route::middleware('auth')->group(function () {
     // Phase 4: Expenses & Internal Transfers
     Route::get('/expenses', [\App\Http\Controllers\ExpenseController::class, 'index'])->name('expenses.index');
     Route::post('/expenses', [\App\Http\Controllers\ExpenseController::class, 'store'])->name('expenses.store');
+    Route::resource('vehicles', \App\Http\Controllers\VehicleController::class)->only(['index', 'store', 'update']);
     Route::get('/expenses/ledger/{user}', [\App\Http\Controllers\ExpenseController::class, 'ledger'])->name('expenses.ledger');
     Route::post('/transfers', [\App\Http\Controllers\TransferController::class, 'store'])->name('transfers.store');
     Route::put('/transfers/{transfer}', [\App\Http\Controllers\TransferController::class, 'update'])->name('transfers.update');
@@ -108,7 +109,9 @@ Route::middleware('auth')->group(function () {
 
     // Phase 4: Reports & Analytics
     Route::get('/reports', [\App\Http\Controllers\ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/projects/{project}', [\App\Http\Controllers\ReportController::class, 'project'])->name('reports.project');
     Route::get('/reports/export', [\App\Http\Controllers\ReportController::class, 'export'])->name('reports.export');
+    Route::get('/reports/pdf', [\App\Http\Controllers\ReportController::class, 'pdf'])->name('reports.pdf');
 
     // Phase 6: Zoho Books Integration & Sync Center
     Route::get('/zoho', [\App\Http\Controllers\ZohoController::class, 'index'])->name('zoho.index');

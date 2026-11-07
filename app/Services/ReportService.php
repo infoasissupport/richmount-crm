@@ -9,6 +9,7 @@ use App\Models\Project;
 use App\Models\PurchaseOrder;
 use App\Models\Transfer;
 use App\Models\User;
+use Illuminate\Support\Collection;
 
 class ReportService
 {
@@ -69,39 +70,209 @@ class ReportService
     }
 
     /**
-     * Project Profitability Report.
+     * Project Profitability Report with real invoice/payment/expense totals.
      */
-    public function projectProfitability(): array
+    public function projectProfitability(array $filters = []): array
     {
-        return Project::with(['branch', 'invoices', 'expenses', 'purchaseOrders'])
-            ->get()
-            ->map(function ($p) {
-                $contractValue = (float) $p->contract_value;
-                $invoiced = (float) $p->totalInvoiced();
-                $expenses = (float) $p->expenses->where('status', 'approved')->sum('grand_total');
-                $vendorPos = (float) $p->purchaseOrders->where('status', 'approved')->sum('grand_total');
-                $totalCost = $expenses + $vendorPos;
-                $profit = $invoiced - $totalCost;
-                $marginPct = $invoiced > 0 ? round(($profit / $invoiced) * 100, 1) : 0;
+        $query = Project::query()->with(['branch', 'invoices.payments', 'expenses.branch', 'expenses.user', 'purchaseOrders']);
 
+        if (! empty($filters['search'])) {
+            $search = trim($filters['search']);
+            $query->where(function ($q) use ($search) {
+                $q->where('project_number', 'like', "%{$search}%")
+                  ->orWhere('name', 'like', "%{$search}%")
+                  ->orWhere('client_name', 'like', "%{$search}%");
+            });
+        }
+
+        if (! empty($filters['project_id'])) {
+            $query->where('id', $filters['project_id']);
+        }
+
+        if (! empty($filters['branch_id'])) {
+            $query->where('branch_id', $filters['branch_id']);
+        }
+
+        if (! empty($filters['client'])) {
+            $query->where('client_name', 'like', "%{$filters['client']}%");
+        }
+
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        if (! empty($filters['date_from'])) {
+            $query->whereDate('start_date', '>=', $filters['date_from']);
+        }
+
+        if (! empty($filters['date_to'])) {
+            $query->whereDate('start_date', '<=', $filters['date_to']);
+        }
+
+        return $query->get()->map(function (Project $project) {
+            return $this->projectFinancialSummaryRow($project);
+        })->values()->all();
+    }
+
+    public function projectFinancialSummaryRow(Project $project): array
+    {
+        $contractValue = (float) $project->contract_value;
+        $totalInvoiced = (float) $project->totalInvoiced();
+        $totalReceived = (float) $this->projectReceivedPayments($project);
+        $totalExpenses = (float) $project->expenses()->where('status', 'approved')->sum('grand_total');
+        $vendorPos = (float) $project->purchaseOrders()->where('status', 'approved')->sum('grand_total');
+        $totalProjectCost = $totalExpenses + $vendorPos;
+        $outstanding = max(0.0, $totalInvoiced - $totalReceived);
+        $contractProfit = $contractValue - $totalProjectCost;
+        $invoicedProfit = $totalInvoiced - $totalProjectCost;
+        $profitMargin = $totalInvoiced > 0 ? round(($invoicedProfit / $totalInvoiced) * 100, 2) : 0.0;
+        $cashPosition = $totalReceived - $totalProjectCost;
+
+        return [
+            'id' => $project->id,
+            'project_id' => $project->id,
+            'project_number' => $project->project_number,
+            'name' => $project->name,
+            'client' => $project->client_name,
+            'branch' => $project->branch?->short_name ?? $project->branch?->name,
+            'status' => $project->statusLabel(),
+            'contract_value' => $contractValue,
+            'total_invoiced' => $totalInvoiced,
+            'total_received' => $totalReceived,
+            'total_expenses' => $totalExpenses,
+            'vendor_pos' => $vendorPos,
+            'total_project_cost' => $totalProjectCost,
+            'outstanding_amount' => $outstanding,
+            'contract_profit' => $contractProfit,
+            'invoiced_profit' => $invoicedProfit,
+            'net_profit' => $invoicedProfit,
+            'profit_margin' => $profitMargin,
+            'cash_position' => $cashPosition,
+            'invoiced' => $totalInvoiced,
+            'expenses' => $totalExpenses,
+            'total_cost' => $totalProjectCost,
+            'profit' => $invoicedProfit,
+            'margin_pct' => $profitMargin,
+        ];
+    }
+
+    public function projectFinancialDetail(Project $project): array
+    {
+        $projectInvoices = $project->invoices()->with('payments', 'branch')->orderByDesc('invoice_date')->get();
+        $approvedExpenses = $project->expenses()->with('branch', 'user')->where('status', 'approved')->orderByDesc('date')->get();
+        $pendingExpenses = $project->expenses()->with('branch', 'user')->where('status', 'pending')->orderByDesc('date')->get();
+        $allProjectExpenses = $project->expenses()->with('branch', 'user')->orderByDesc('date')->get();
+
+        $invoiceRows = $projectInvoices->map(function (Invoice $invoice) {
+            $paidAmount = (float) $invoice->payments()->sum('amount');
+            $paymentStatus = $paidAmount >= (float) $invoice->grand_total ? 'Received' : ($paidAmount > 0 ? 'Partially Received' : 'Unpaid');
+
+            return [
+                'date' => $invoice->invoice_date?->format('d M Y') ?? '—',
+                'invoice_number' => $invoice->invoice_number,
+                'description' => $invoice->notes ?: ($invoice->is_final ? 'Final invoice' : 'Project invoice'),
+                'client' => $invoice->client_name ?: $project->client_name,
+                'invoice_amount' => (float) $invoice->grand_total,
+                'tax_amount' => (float) $invoice->vat_amount,
+                'invoice_status' => ucfirst($invoice->status),
+                'payment_status' => $paymentStatus,
+                'is_payment' => false,
+            ];
+        })->values()->all();
+
+        $paymentRows = InvoicePayment::query()
+            ->whereIn('invoice_id', $projectInvoices->pluck('id'))
+            ->with('invoice')
+            ->orderByDesc('payment_date')
+            ->get()
+            ->map(function (InvoicePayment $payment) {
                 return [
-                    'id' => $p->id,
-                    'project_id' => $p->id,
-                    'project_number' => $p->project_number,
-                    'name' => $p->name,
-                    'client' => $p->client_name,
-                    'branch' => $p->branch?->short_name ?? $p->branch?->name,
-                    'status' => $p->statusLabel(),
-                    'contract_value' => $contractValue,
-                    'invoiced' => $invoiced,
-                    'expenses' => $expenses,
-                    'vendor_pos' => $vendorPos,
-                    'total_cost' => $totalCost,
-                    'profit' => $profit,
-                    'margin_pct' => $marginPct,
+                    'date' => $payment->payment_date?->format('d M Y') ?? '—',
+                    'invoice_number' => $payment->invoice?->invoice_number ?? '—',
+                    'description' => $payment->payment_method ? 'Payment received via ' . ucfirst(str_replace('_', ' ', $payment->payment_method)) : 'Payment received',
+                    'client' => $payment->invoice?->client_name ?: '—',
+                    'invoice_amount' => (float) $payment->amount,
+                    'tax_amount' => 0.0,
+                    'invoice_status' => $payment->invoice?->status ? ucfirst($payment->invoice->status) : 'Received',
+                    'payment_status' => 'Received',
+                    'is_payment' => true,
+                    'reference' => $payment->payment_reference,
                 ];
-            })
-            ->toArray();
+            })->values()->all();
+
+        $expenseRows = $allProjectExpenses->map(function (Expense $expense) {
+            return [
+                'date' => $expense->date?->format('d M Y') ?? '—',
+                'expense_number' => $expense->expense_number,
+                'category' => $this->expenseCategoryLabel($expense->category),
+                'description' => $expense->description ?: 'Project expense',
+                'vendor' => $expense->vendor_name ?: '—',
+                'quantity' => '—',
+                'unit' => '—',
+                'amount' => (float) $expense->grand_total,
+                'tax' => (float) $expense->vat_amount,
+                'payment_method' => ucfirst(str_replace('_', ' ', (string) $expense->type)),
+                'receipt' => $expense->receipt_file ? asset('storage/' . $expense->receipt_file) : null,
+                'branch' => $expense->branch?->name ?? '—',
+                'created_by' => $expense->user?->name ?? '—',
+                'status' => ucfirst($expense->status),
+            ];
+        })->values()->all();
+
+        $categoryTotals = collect($expenseRows)->groupBy('category')->map(function ($items, $category) {
+            return [
+                'label' => $category,
+                'amount' => round((float) collect($items)->sum('amount'), 2),
+                'count' => count($items),
+            ];
+        })->sortByDesc('amount')->values()->all();
+
+        $summary = [
+            'contract_amount' => (float) $project->contract_value,
+            'total_invoiced' => (float) $projectInvoices->sum('grand_total'),
+            'total_received' => $this->projectReceivedPayments($project),
+            'total_expenses' => (float) $approvedExpenses->sum('grand_total'),
+            'outstanding_amount' => max(0.0, ((float) $projectInvoices->sum('grand_total')) - $this->projectReceivedPayments($project)),
+            'contract_profit' => (float) $project->contract_value - (float) $approvedExpenses->sum('grand_total'),
+            'invoiced_profit' => ((float) $projectInvoices->sum('grand_total')) - (float) $approvedExpenses->sum('grand_total'),
+            'cash_position' => $this->projectReceivedPayments($project) - (float) $approvedExpenses->sum('grand_total'),
+        ];
+        $summary['profit_margin'] = $summary['total_invoiced'] > 0 ? round(($summary['invoiced_profit'] / $summary['total_invoiced']) * 100, 2) : 0.0;
+        $summary['net_profit'] = $summary['invoiced_profit'];
+
+        return [
+            'project' => $project,
+            'summary' => $summary,
+            'income_rows' => $invoiceRows,
+            'payment_rows' => $paymentRows,
+            'expense_rows' => $expenseRows,
+            'category_totals' => $categoryTotals,
+            'approved_expenses' => $approvedExpenses,
+            'pending_expenses' => $pendingExpenses,
+            'project_expense_total' => (float) $approvedExpenses->sum('grand_total'),
+        ];
+    }
+
+    protected function projectReceivedPayments(Project $project): float
+    {
+        $invoiceIds = $project->invoices()->whereNotIn('status', ['draft', 'void'])->pluck('id');
+
+        return (float) InvoicePayment::query()->whereIn('invoice_id', $invoiceIds)->sum('amount');
+    }
+
+    protected function expenseCategoryLabel(?string $category): string
+    {
+        return match ($category) {
+            'materials' => 'Material Costs',
+            'labor' => 'Labour Costs',
+            'transport' => 'Transportation Costs',
+            'tools' => 'Equipment / Tools Costs',
+            'fuel' => 'Transportation Costs',
+            'meals' => 'Other Expenses',
+            'permits' => 'Other Expenses',
+            'miscellaneous' => 'Other Expenses',
+            default => ucfirst((string) $category ?: 'Other Expenses'),
+        };
     }
 
     /**

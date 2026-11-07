@@ -42,18 +42,18 @@ class QuotationController extends Controller
         $query = Quotation::latestPerLead()
             ->accessibleBy($user)
             ->with(['lead.assignedEngineer', 'branch', 'preparedBy', 'project'])
-            ->when($tab === 'awaiting_project', fn($q) => $q->where('status', 'awarded')->whereDoesntHave('project'))
-            ->when($tab !== 'all' && $tab !== 'awaiting_project', fn($q) => $q->where('status', $tab))
-            ->when($request->filled('branch_id'), fn($q) => $q->where('branch_id', $request->branch_id))
+            ->when($tab === 'awaiting_project', fn ($q) => $q->where('status', 'awarded')->whereDoesntHave('project'))
+            ->when($tab !== 'all' && $tab !== 'awaiting_project', fn ($q) => $q->where('status', $tab))
+            ->when($request->filled('branch_id'), fn ($q) => $q->where('branch_id', $request->branch_id))
             // date period by quote date, same options as Lead Management (default: all time)
             ->when(in_array($request->get('period'), ['month', '7', '30', 'year'], true),
-                fn($q) => $q->where('quote_date', '>=', app(DashboardService::class)->periodStart($request->get('period'))->toDateString()))
+                fn ($q) => $q->where('quote_date', '>=', app(DashboardService::class)->periodStart($request->get('period'))->toDateString()))
             ->when($request->filled('search'), function ($q) use ($request) {
-                $term = '%' . $request->search . '%';
+                $term = '%'.$request->search.'%';
                 $q->where(function ($sq) use ($term) {
                     $sq->where('quote_number', 'like', $term)
-                       ->orWhereHas('lead', fn($lq) => $lq->where('company_name', 'like', $term)->orWhere('subject', 'like', $term))
-                       ->orWhereHas('preparedBy', fn($pq) => $pq->where('name', 'like', $term));
+                        ->orWhereHas('lead', fn ($lq) => $lq->where('company_name', 'like', $term)->orWhere('subject', 'like', $term))
+                        ->orWhereHas('preparedBy', fn ($pq) => $pq->where('name', 'like', $term));
                 });
             })
             ->latest()
@@ -63,7 +63,7 @@ class QuotationController extends Controller
             $exportQuotes = (clone $query)->get();
             $headers = [
                 'Content-Type' => 'text/csv',
-                'Content-Disposition' => 'attachment; filename="quotations_' . date('Y-m-d') . '.csv"',
+                'Content-Disposition' => 'attachment; filename="quotations_'.date('Y-m-d').'.csv"',
             ];
             $callback = function () use ($exportQuotes) {
                 $handle = fopen('php://output', 'w');
@@ -83,6 +83,7 @@ class QuotationController extends Controller
                 }
                 fclose($handle);
             };
+
             return response()->stream($callback, 200, $headers);
         }
 
@@ -148,7 +149,7 @@ class QuotationController extends Controller
                 ?? Lead::accessibleBy($user)->latest()->first();
         }
 
-        if (!$lead) {
+        if (! $lead) {
             return redirect()->route('leads.index', ['new' => 1])
                 ->with('toast_info', 'Please create a lead first before opening the quotation builder.');
         }
@@ -165,7 +166,7 @@ class QuotationController extends Controller
 
         // Branch engineers for reassignment when editing/reopening
         $branchEngineers = User::where('role_name', 'engineer')
-            ->when($lead->branch_id, fn($q) => $q->where(fn($sq) => $sq->where('branch_id', $lead->branch_id)->orWhereNull('branch_id')))
+            ->when($lead->branch_id, fn ($q) => $q->where(fn ($sq) => $sq->where('branch_id', $lead->branch_id)->orWhereNull('branch_id')))
             ->get();
 
         return view('quotations.builder', compact('quote', 'lead', 'openQuotes', 'availableLeads', 'branchEngineers'));
@@ -188,7 +189,7 @@ class QuotationController extends Controller
             ], 201);
         }
 
-        return redirect()->route('quotations.builder', ['id' => $quote->id])
+        return redirect()->to($this->builderUrl($quote->id, $request))
             ->with('toast_success', $submitted
                 ? "Quotation {$quote->quote_number} created and submitted for approval."
                 : "Quotation {$quote->quote_number} created as draft.");
@@ -228,10 +229,19 @@ class QuotationController extends Controller
             ]);
         }
 
-        return redirect()->route('quotations.builder', ['id' => $quote->id])
+        return redirect()->to($this->builderUrl($quote->id, $request))
             ->with('toast_success', $submitted
                 ? "Quotation {$quote->quote_number} saved and submitted for approval."
                 : "Quotation {$quote->quote_number} saved.");
+    }
+
+    /**
+     * Builder URL to return to after an action; keeps ?embed=1 when the builder is open in the
+     * Quotations list's edit popup, so the result shows in the popup again.
+     */
+    protected function builderUrl(int $quoteId, Request $request): string
+    {
+        return route('quotations.builder', array_filter(['id' => $quoteId, 'embed' => $request->boolean('embed') ? 1 : null]));
     }
 
     /**
@@ -277,7 +287,7 @@ class QuotationController extends Controller
         $this->authorize('create', Quotation::class);
 
         $targetLeadId = $request->input('lead_id');
-        $clone = $this->quotationService->cloneQuote($quotation, $request->user(), $targetLeadId ? (int)$targetLeadId : null);
+        $clone = $this->quotationService->cloneQuote($quotation, $request->user(), $targetLeadId ? (int) $targetLeadId : null);
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -287,7 +297,7 @@ class QuotationController extends Controller
             ], 201);
         }
 
-        return redirect()->route('quotations.builder', ['id' => $clone->id])
+        return redirect()->to($this->builderUrl($clone->id, $request))
             ->with('toast_success', "Quotation cloned into new draft {$clone->quote_number}.");
     }
 
@@ -379,16 +389,31 @@ class QuotationController extends Controller
     {
         $this->authorize('reopen', $quotation);
 
+        $documentRules = [];
+        foreach ($request->file('revised_scope_documents', []) ?? [] as $index => $document) {
+            $documentRules["revised_scope_documents.{$index}"] = [
+                'file',
+                'extensions:pdf,jpg,jpeg,png,dwg,xlsx,docx',
+                'max:20480',
+            ];
+            if (strtolower($document->getClientOriginalExtension()) !== 'dwg') {
+                $documentRules["revised_scope_documents.{$index}"][] = 'mimes:pdf,jpg,jpeg,png,xlsx,docx';
+            }
+        }
+
         $request->validate([
             'reason' => ['required', 'string', 'max:500'],
             'engineer_id' => ['nullable', 'exists:users,id'],
-        ]);
+            'revised_scope_documents' => ['nullable', 'array'],
+            'revised_scope_documents.*' => ['file', 'extensions:pdf,jpg,jpeg,png,dwg,xlsx,docx', 'max:20480'],
+        ] + $documentRules);
 
         $quote = $this->quotationService->reopenQuote(
             $quotation,
             $request->user(),
             $request->input('reason'),
-            $request->filled('engineer_id') ? (int)$request->input('engineer_id') : null
+            $request->filled('engineer_id') ? (int) $request->input('engineer_id') : null,
+            $request->file('revised_scope_documents', []) ?? []
         );
 
         if ($request->wantsJson()) {
@@ -399,7 +424,7 @@ class QuotationController extends Controller
             ]);
         }
 
-        return redirect()->route('quotations.builder', ['id' => $quote->id])
+        return redirect()->to($this->builderUrl($quote->id, $request))
             ->with('toast_info', "Quotation {$quote->quote_number} moved to Draft. You can now edit and re-submit for approval.");
     }
 
@@ -431,7 +456,7 @@ class QuotationController extends Controller
 
         return response()->json([
             'path' => $path,
-            'url' => asset('storage/' . $path),
+            'url' => asset('storage/'.$path),
         ]);
     }
 
@@ -452,13 +477,13 @@ class QuotationController extends Controller
         // .php / .html / .svg can never run or render from public/storage; the original name is kept for display
         $ext = strtolower($file->getClientOriginalExtension());
         $safeExt = in_array($ext, QuotationAttachment::SAFE_EXTENSIONS, true) ? $ext : 'bin';
-        $path = $file->storeAs('quotation_attachments', Str::random(40) . '.' . $safeExt, 'public');
+        $path = $file->storeAs('quotation_attachments', Str::random(40).'.'.$safeExt, 'public');
 
         return response()->json([
             'path' => $path,
             'name' => $file->getClientOriginalName(),
             'size' => $file->getSize(),
-            'url' => asset('storage/' . $path),
+            'url' => asset('storage/'.$path),
         ]);
     }
 

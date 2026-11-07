@@ -29,6 +29,13 @@
         </button>
         @endcan
 
+        @can('expenses.approve')
+        <a class="btn btn-ghost" href="{{ route('vehicles.index') }}">
+            <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-settings"/></svg>
+            Manage Vehicles
+        </a>
+        @endcan
+
         @can('expenses.create')
         <button class="btn btn-primary" type="button" onclick="openExpenseModal()">
             <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-scan"/></svg>
@@ -136,6 +143,7 @@
                         <th>Category</th>
                         <th>Vendor</th>
                         <th>Type</th>
+                        <th>Vehicle</th>
                         <th class="num">Amount (AED)</th>
                         <th>Status</th>
                         <th>Receipt</th>
@@ -163,6 +171,7 @@
                                     {{ ucfirst($exp->type) }}
                                 </span>
                             </td>
+                            <td>{{ $exp->vehicle?->registration_number ?? '—' }}</td>
                             <td class="num"><b>{{ number_format($exp->grand_total, 2) }}</b></td>
                             <td>
                                 <span class="pill pill-{{ $exp->statusTone() }}" title="{{ $exp->rejection_reason }}">
@@ -182,7 +191,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" style="text-align: center; color: var(--muted); padding: 25px;">
+                            <td colspan="11" style="text-align: center; color: var(--muted); padding: 25px;">
                                 No expenses found for this selection.
                             </td>
                         </tr>
@@ -197,7 +206,7 @@
     </section>
 
     {{-- Internal Transfers Table --}}
-    <section class="card" id="transfersTable" style="margin-top: 20px;">
+    <section class="card" id="transfersTable" >
         <header class="card-head">
             <h2>
                 <span class="head-ic">
@@ -280,7 +289,7 @@
     </section>
 
     {{-- Two-col grid: Left (Cash in Hand by Engineer), Right (Customer Payments) --}}
-    <div class="two-col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+    <div class="two-col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
         {{-- Cash in Hand by Engineer --}}
         <section class="card" id="cashTable">
             <header class="card-head">
@@ -373,105 +382,16 @@
     </div>
 </div>
 
-{{-- Add Expense / Scan Receipt Modal --}}
-<div class="modal-wrap" id="expenseModal" style="display: none;">
-    <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="expenseModalTitle">
-        <div class="modal-head">
-            <div>
-                <h3 id="expenseModalTitle">Record Expense</h3>
-                <p>Log petty cash or card expense with receipt verification</p>
-            </div>
-            <button class="icon-btn" type="button" onclick="closeExpenseModal()" aria-label="Close">
-                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
-            </button>
-        </div>
+@php
+    $selectedExpenseProjectId = request('project_id');
+@endphp
 
-        <form action="{{ route('expenses.store') }}" method="POST" enctype="multipart/form-data">
-            @csrf
-            <div class="modal-body">
-                <div class="form-grid">
-                    <div class="field">
-                        <label class="label req" for="expProject">Project</label>
-                        <select class="select" id="expProject" name="project_id">
-                            <option value="">General Overhead (No Project)</option>
-                            @foreach($openProjects as $op)
-                                <option value="{{ $op->id }}">{{ $op->project_number }} &bull; {{ $op->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="field">
-                        <label class="label req" for="expCat">Category</label>
-                        <select class="select" id="expCat" name="category" required>
-                            <option value="materials">Materials</option>
-                            <option value="transport">Transport / Delivery</option>
-                            <option value="labor">Daily Labor</option>
-                            <option value="meals">Site Meals</option>
-                            <option value="tools">Tools & Equipment</option>
-                            <option value="fuel">Fuel & Petrol</option>
-                            <option value="permits">Municipality & Permits</option>
-                            <option value="miscellaneous">Miscellaneous</option>
-                        </select>
-                    </div>
-
-                    <div class="field">
-                        <label class="label req" for="expType">Payment Method</label>
-                        <select class="select" id="expType" name="type" required>
-                            <option value="cash">Petty Cash (Cash in Hand)</option>
-                            <option value="card">Company Debit / Credit Card</option>
-                        </select>
-                    </div>
-
-                    <div class="field">
-                        <label class="label req" for="expDate">Expense Date</label>
-                        <input class="input" id="expDate" name="date" type="date" required value="{{ date('Y-m-d') }}">
-                    </div>
-
-                    <div class="field">
-                        <label class="label req" for="expSubtotal">Subtotal (AED)</label>
-                        <input class="input" id="expSubtotal" name="subtotal" type="number" step="0.01" min="0.01" required placeholder="0.00">
-                    </div>
-
-                    <div class="field">
-                        <label class="label" for="expVat">VAT Rate</label>
-                        <select class="select" id="expVat" name="vat_rate">
-                            <option value="0.05">5% UAE VAT</option>
-                            <option value="0">0% (Zero-rated / Exempt)</option>
-                        </select>
-                    </div>
-
-                    <div class="field">
-                        <label class="label" for="expVendor">Vendor / Merchant</label>
-                        <input class="input" id="expVendor" name="vendor_name" type="text" placeholder="e.g. Ace Hardware LLC">
-                    </div>
-
-                    <div class="field">
-                        <label class="label" for="expBill">Receipt / Bill Number</label>
-                        <input class="input" id="expBill" name="bill_number" type="text" placeholder="e.g. REC-8821">
-                    </div>
-
-                    <div class="field span-2">
-                        <label class="label" for="expReceipt">Upload Receipt Scan / Photo (OCR)</label>
-                        <input class="input" id="expReceipt" name="receipt" type="file" accept=".pdf,.png,.jpg,.jpeg">
-                    </div>
-
-                    <div class="field span-2">
-                        <label class="label" for="expDesc">Description & Justification</label>
-                        <textarea class="textarea" id="expDesc" name="description" rows="2" placeholder="Purpose of expense..."></textarea>
-                    </div>
-                </div>
-            </div>
-
-            <div class="modal-foot">
-                <button class="btn btn-ghost" type="button" onclick="closeExpenseModal()">Cancel</button>
-                <button class="btn btn-primary" type="submit">
-                    <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
-                    Submit Expense
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
+@include('expenses.partials.form-modal', [
+    'projectContext' => null,
+    'openProjects' => $openProjects,
+    'selectedProjectId' => $selectedExpenseProjectId,
+    'autoOpen' => request()->query('new') === '1',
+])
 
 {{-- New Transfer Modal --}}
 <div class="modal-wrap" id="transferModal" style="display: none;">
@@ -608,13 +528,6 @@
 </div>
 
 <script>
-    function openExpenseModal() {
-        document.getElementById('expenseModal').style.display = 'grid';
-    }
-    function closeExpenseModal() {
-        document.getElementById('expenseModal').style.display = 'none';
-    }
-
     function openTransferModal() {
         document.getElementById('transferModal').style.display = 'grid';
     }

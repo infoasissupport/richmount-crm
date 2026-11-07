@@ -67,17 +67,33 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($items as $i => $item)
+            @php $itemNo = 0; @endphp
+            @foreach($items as $item)
+                @if($item->isSection())
+                    @include('quotations.pdf.section', ['item' => $item, 'cols' => $outputMode !== 'tech' ? 6 : 4])
+                    @continue
+                @endif
+                @if($item->isSubDesc())
+                    @continue
+                @endif
+                @php $itemNo++; @endphp
+                @php
+                    $subdescs = $items->slice($loop->index + 1)->takeWhile(fn ($next) => $next->isSubDesc());
+                    $groupRowspan = 1 + $subdescs->count();
+                @endphp
                 <tr>
-                    <td>{{ $i + 1 }}</td>
-                    <td>{!! \App\Support\RichText::toHtml($item->description) !!}</td>
-                    <td class="num">{{ (float) $item->quantity }}</td>
-                    <td>{{ $item->unit }}</td>
+                    <td rowspan="{{ $groupRowspan }}" style="vertical-align: middle;">{{ $itemNo }}</td>
+                    <td>{!! \App\Support\RichText::toHtml($item->description) !!}@include('quotations.pdf.photos', ['item' => $item])</td>
+                    <td class="num" rowspan="{{ $groupRowspan }}" style="vertical-align: middle;">{{ (float) $item->quantity }}</td>
+                    <td rowspan="{{ $groupRowspan }}" style="vertical-align: middle;">{{ $item->unit }}</td>
                     @if($outputMode !== 'tech')
-                        <td class="num">{{ number_format($item->unit_price, 2) }}</td>
-                        <td class="num">{{ number_format($item->total_amount, 2) }}</td>
+                        <td class="num" rowspan="{{ $groupRowspan }}" style="vertical-align: middle;">{{ number_format($item->unit_price, 2) }}</td>
+                        <td class="num" rowspan="{{ $groupRowspan }}" style="vertical-align: middle;">{{ number_format($item->total_amount, 2) }}</td>
                     @endif
                 </tr>
+                @foreach($subdescs as $subdesc)
+                    <tr><td>{!! \App\Support\RichText::toHtml($subdesc->description) !!}</td></tr>
+                @endforeach
             @endforeach
         </tbody>
     </table>

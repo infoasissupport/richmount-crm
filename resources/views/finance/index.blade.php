@@ -188,7 +188,7 @@
     </section>
 
     {{-- Pending Internal Transfers Feed --}}
-    <section class="card" id="pendingTransfersTable" style="margin-top: 20px;">
+    <section class="card" id="pendingTransfersTable" >
         <header class="card-head">
             <h2>
                 <span class="head-ic">
@@ -268,7 +268,7 @@
     </section>
 
     {{-- Tax Invoices & Receivables Overview --}}
-    <section class="card" id="invoicesOverviewTable" style="margin-top: 20px;">
+    <section class="card" id="invoicesOverviewTable" >
         <header class="card-head">
             <h2>
                 <span class="head-ic">

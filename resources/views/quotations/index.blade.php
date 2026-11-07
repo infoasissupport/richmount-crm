@@ -164,7 +164,8 @@
                                        aria-label="View {{ $q->quote_number }}" data-quote-preview='@json($quotePreview)'>
                                         <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"/></svg>
                                     </a>
-                                    <a class="act edit" href="{{ route('quotations.builder', ['id' => $q->id]) }}" title="Open in Builder" aria-label="Edit {{ $q->quote_number }}">
+                                    <a class="act edit" href="{{ route('quotations.builder', ['id' => $q->id]) }}" title="Edit Quotation" aria-label="Edit {{ $q->quote_number }}"
+                                       data-edit-quote="{{ route('quotations.builder', ['id' => $q->id, 'embed' => 1]) }}" data-quote-number="{{ $q->quote_number }}">
                                         <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"/></svg>
                                     </a>
                                     <button type="button" class="act" data-row-menu title="More" aria-label="More actions for {{ $q->quote_number }}" aria-haspopup="menu" aria-expanded="false">
@@ -249,10 +250,65 @@
 @include('leads.partials.row-tools')
 
 @include('quotations.partials.create-modal')
+
+{{-- Edit Quotation popup: the full builder (?embed=1) in a frame; the list refreshes on close if anything was saved --}}
+<div class="modal-wrap" id="quoteEditModal" style="display: none;" onclick="if (event.target === this) closeQuoteEdit()">
+    <div class="modal quote-edit" role="dialog" aria-modal="true" aria-labelledby="quoteEditTitle">
+        <div class="modal-head">
+            <div>
+                <h3 id="quoteEditTitle">Edit Quotation</h3>
+            </div>
+            <div class="quote-edit-actions">
+                <a class="btn btn-ghost btn-sm" id="quoteEditFull" href="#" title="Open the quotation on its own page">
+                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-right"/></svg>
+                    Open full page
+                </a>
+                <button class="icon-btn" type="button" onclick="closeQuoteEdit()" aria-label="Close">
+                    <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+                </button>
+            </div>
+        </div>
+        <iframe id="quoteEditFrame" class="quote-edit-frame" title="Edit quotation"></iframe>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
 <script>
+    // Edit Quotation popup (pencil): loads the builder in embed mode; each extra page load inside the frame
+    // means an action ran (save, submit, approve…), so the list is refreshed when the popup closes
+    var quoteEditLoads = 0;
+    function openQuoteEdit(link) {
+        quoteEditLoads = 0;
+        document.getElementById('quoteEditTitle').textContent = 'Edit Quotation · ' + link.dataset.quoteNumber;
+        document.getElementById('quoteEditFull').href = link.href;
+        document.getElementById('quoteEditFrame').src = link.dataset.editQuote;
+        var m = document.getElementById('quoteEditModal');
+        m.style.display = 'flex';
+        m.classList.add('open');
+    }
+    function closeQuoteEdit() {
+        var m = document.getElementById('quoteEditModal');
+        m.classList.remove('open');
+        m.style.display = 'none';
+        document.getElementById('quoteEditFrame').src = 'about:blank';
+        if (quoteEditLoads > 1) location.reload();
+    }
+    document.getElementById('quoteEditFrame').addEventListener('load', function () {
+        if (this.src && this.src !== 'about:blank' && !this.src.endsWith('about:blank')) quoteEditLoads++;
+    });
+    document.addEventListener('click', function (e) {
+        var link = e.target.closest('[data-edit-quote]');
+        // Ctrl / middle click keeps opening the full builder page in a new tab
+        if (!link || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+        e.preventDefault();
+        openQuoteEdit(link);
+    });
+    document.addEventListener('keydown', function (e) {
+        var m = document.getElementById('quoteEditModal');
+        if (e.key === 'Escape' && m.style.display !== 'none') closeQuoteEdit();
+    });
+
     function openSendModalFor(id, quoteNo, customer, project, subtotal, vat, total, email, contact) {
         var form = document.getElementById('listSendForm');
         if (form) form.action = '/quotations/' + id + '/send';

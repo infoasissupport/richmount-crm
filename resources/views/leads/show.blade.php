@@ -111,14 +111,14 @@
                 <dt>Email</dt><dd><a href="mailto:{{ $lead->email }}">{{ $lead->email ?: '—' }}</a></dd>
             </dl>
 
-            <div class="dr-section" style="margin-top: 15px;">
+            <div class="dr-section" >
                 <h5>Notes &amp; Scope Requirements</h5>
                 <p class="notes" style="background:#fafafa; border:1px solid #eee; padding:10px; border-radius:4px; font-size:12px;">
                     {{ $lead->notes ?: 'No additional notes provided.' }}
                 </p>
             </div>
 
-            <div class="dr-section" style="margin-top: 15px;">
+            <div class="dr-section" >
                 <h5>Attachments ({{ $lead->attachments->count() }})</h5>
                 <ul class="file-list">
                     @forelse($lead->attachments as $att)

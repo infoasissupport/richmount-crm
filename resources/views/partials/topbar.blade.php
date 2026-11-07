@@ -130,12 +130,17 @@
                         @php
                             $nData = $n->data;
                             $isUnread = is_null($n->read_at);
+                            $icName = match($nData['type'] ?? '') {
+                                'lead' => 'users',
+                                'quote' => 'file-text',
+                                default => 'bell',
+                            };
                         @endphp
                         <form action="{{ route('notifications.read', $n->id) }}" method="POST" style="margin: 0; display: block;">
                             @csrf
                             <button type="submit" class="notif n-{{ $nData['type'] ?? 'lead' }} {{ $isUnread ? 'unread' : '' }}" style="width: 100%; border: none; background: {{ $isUnread ? 'rgba(148, 28, 60, 0.04)' : 'transparent' }}; border-bottom: 1px solid var(--line, #f1f5f9); display: flex; gap: 10px; padding: 10px 12px; text-align: left; cursor: pointer; transition: background 0.15s; position: relative;">
                                 <span class="n-ic" style="width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: rgba(148, 28, 60, 0.1); color: var(--primary, #941C3C); flex-shrink: 0; margin-top: 2px;">
-                                    <svg class="ic" style="width: 16px; height: 16px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-{{ ($nData['type'] ?? '') === 'lead' ? 'users' : 'bell' }}"/></svg>
+                                    <svg class="ic" style="width: 16px; height: 16px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-{{ $icName }}"/></svg>
                                 </span>
                                 <span style="flex: 1; overflow: hidden;">
                                     <strong style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text, #1e293b); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $nData['title'] ?? 'Notification' }}</strong>

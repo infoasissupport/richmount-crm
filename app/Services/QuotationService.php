@@ -7,6 +7,7 @@ use App\Models\Quotation;
 use App\Models\QuotationAttachment;
 use App\Models\QuotationHistory;
 use App\Models\User;
+use App\Notifications\QuotationSubmittedNotification;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -312,7 +313,49 @@ class QuotationService
 
         AuditService::log('submitted', $quotation, "Submitted quotation {$quotation->quote_number} for approval");
 
+        $this->notifyApproversOnSubmission($quotation, $author);
+
         return $quotation;
+    }
+
+    /**
+     * Notify Estimation User and Super Admin when quotation is submitted for approval.
+     */
+    protected function notifyApproversOnSubmission(Quotation $quotation, User $author): void
+    {
+        $recipients = collect();
+
+        // 1. The estimation user who created the parent lead
+        if ($quotation->lead && $quotation->lead->createdBy) {
+            $recipients->push($quotation->lead->createdBy);
+        }
+
+        // 2. Estimation users for this branch
+        $estimators = User::where('is_active', true)
+            ->where(function ($q) {
+                $q->where('role_name', 'estimation')
+                  ->orWhereHas('roles', fn($rq) => $rq->where('name', 'estimation'));
+            })
+            ->get()
+            ->filter(fn(User $u) => $u->canAccessBranch($quotation->branch_id));
+
+        $recipients = $recipients->merge($estimators);
+
+        // 3. Super Admin accounts
+        $superAdmins = User::where('is_active', true)
+            ->where(function ($q) {
+                $q->where('role_name', 'super_admin')
+                  ->orWhereHas('roles', fn($rq) => $rq->where('name', 'super_admin'));
+            })
+            ->get();
+
+        $recipients = $recipients->merge($superAdmins)
+            ->unique('id')
+            ->reject(fn(User $u) => $u->id === $author->id);
+
+        foreach ($recipients as $recipient) {
+            $recipient->notify(new QuotationSubmittedNotification($quotation, $author));
+        }
     }
 
     /**

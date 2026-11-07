@@ -71,3 +71,4 @@ class NotificationController extends Controller
         return redirect()->back()->with('toast_success', 'All notifications marked as read.');
     }
 }
+

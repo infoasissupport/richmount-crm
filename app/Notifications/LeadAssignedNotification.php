@@ -49,3 +49,4 @@ class LeadAssignedNotification extends Notification
         ];
     }
 }
+

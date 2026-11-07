@@ -147,4 +147,78 @@ class LeadAssignmentNotificationTest extends TestCase
         $response->assertRedirect();
         $this->assertEquals(1, $engineer->unreadNotifications()->count());
     }
+
+    public function test_engineer_submitting_quotation_notifies_estimation_user_and_super_admin(): void
+    {
+        $estimator = User::where('role_name', 'estimation')->first();
+        $engineer = User::where('role_name', 'engineer')->first();
+        $superAdmin = User::where('role_name', 'super_admin')->first();
+        $branch = Branch::first();
+
+        // Lead created by estimator and assigned to engineer
+        $lead = Lead::create([
+            'lead_number' => Lead::nextLeadNumber(),
+            'lead_date' => now()->toDateString(),
+            'customer_name' => 'Villa Owner',
+            'company_name' => 'Private Residence',
+            'phone' => '0559876543',
+            'email' => 'owner@residence.ae',
+            'department' => 'interior',
+            'branch_id' => $branch->id,
+            'created_by_id' => $estimator->id,
+            'assigned_engineer_id' => $engineer->id,
+            'source' => 'Direct',
+            'subject' => 'Luxury Home Cinema',
+            'status' => 'Contacted',
+            'stage' => 'draft',
+        ]);
+
+        // Engineer creates a draft quotation for that lead
+        $quotation = \App\Models\Quotation::create([
+            'quote_number' => \App\Models\Quotation::nextQuoteNumber(),
+            'lead_id' => $lead->id,
+            'branch_id' => $branch->id,
+            'prepared_by_id' => $engineer->id,
+            'status' => 'draft',
+            'quote_date' => now()->toDateString(),
+            'validity_days' => 30,
+            'subtotal' => 12000.00,
+            'vat_amount' => 600.00,
+            'grand_total' => 12600.00,
+        ]);
+
+        // Clear existing notifications
+        $estimator->notifications()->delete();
+        $superAdmin->notifications()->delete();
+
+        // Engineer submits quotation for approval
+        $this->actingAs($engineer);
+        $response = $this->post("/quotations/{$quotation->id}/submit");
+        $response->assertRedirect();
+
+        $quotation->refresh();
+        $this->assertEquals('pending', $quotation->status);
+
+        // 1. Estimation User should have received notification
+        $this->assertEquals(1, $estimator->unreadNotifications()->count());
+        $estimatorNotif = $estimator->unreadNotifications()->first();
+        $this->assertEquals('quote', $estimatorNotif->data['type']);
+        $this->assertEquals($quotation->id, $estimatorNotif->data['quotation_id']);
+        $this->assertStringContainsString($quotation->quote_number, $estimatorNotif->data['title']);
+        $this->assertStringContainsString($engineer->name, $estimatorNotif->data['text']);
+        $this->assertEquals(route('quotations.builder', ['id' => $quotation->id]), $estimatorNotif->data['link']);
+
+        // 2. Super Admin should have received notification
+        $this->assertEquals(1, $superAdmin->unreadNotifications()->count());
+        $adminNotif = $superAdmin->unreadNotifications()->first();
+        $this->assertEquals('quote', $adminNotif->data['type']);
+        $this->assertEquals($quotation->id, $adminNotif->data['quotation_id']);
+        $this->assertStringContainsString($quotation->quote_number, $adminNotif->data['title']);
+
+        // 3. Estimator marks notification as read (e.g. clicking it in topbar)
+        $this->actingAs($estimator);
+        $clickResponse = $this->post("/notifications/{$estimatorNotif->id}/read");
+        $clickResponse->assertRedirect(route('quotations.builder', ['id' => $quotation->id]));
+        $this->assertEquals(0, $estimator->fresh()->unreadNotifications()->count());
+    }
 }

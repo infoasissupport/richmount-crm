@@ -1054,7 +1054,21 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
                 <h3 id="reopenModalTitle">Edit {{ $quote->quote_number }}?</h3>
                 <p>
                     @if($quote->status === 'sent')
-                        Revision after sending: the quotation moves back to Draft with a new revision number and today's date. Submit it for approval again before sending to the customer.
+                        @php
+                            $rev = 1;
+                            if (preg_match('/^R(\d+)-(.*)$/i', $quote->quote_number, $m)) {
+                                $rev = ((int) $m[1]) + 1;
+                                $base = $m[2];
+                            } elseif (preg_match('/^(.*?)[_-]R(\d+)$/i', $quote->quote_number, $m)) {
+                                $rev = ((int) $m[2]) + 1;
+                                $base = $m[1];
+                            } else {
+                                $base = $quote->quote_number;
+                                $rev = 1;
+                            }
+                            $nextRevisionNumber = "R{$rev}-{$base}";
+                        @endphp
+                        Revision after sending: the quotation becomes <strong>{{ $nextRevisionNumber }}</strong>, dated today, and moves back to Draft. Submit it for approval again, then send the revised quotation.
                     @else
                         The quotation moves back to Draft. After editing, submit it for approval again.
                     @endif
@@ -1066,6 +1080,9 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
         </div>
         <form id="reopenForm" method="POST" action="{{ route('quotations.reopen', $quote) }}" enctype="multipart/form-data">
             @csrf
+            @if(request('embed'))
+                <input type="hidden" name="embed" value="1">
+            @endif
             <div class="modal-body reopen-modal-body">
                 <div class="reopen-modal-fields">
                     <label class="field reopen-field">

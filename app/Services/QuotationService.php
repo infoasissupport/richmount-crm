@@ -454,14 +454,19 @@ class QuotationService
             $oldNumber = $quotation->quote_number;
 
             if ($wasSent) {
-                // If previously sent to customer, create revision number (e.g. QT-2026-0805_R1, _R2)
-                $base = preg_replace('/_R\d+$/', '', $quotation->quote_number);
-                if (preg_match('/_R(\d+)$/', $quotation->quote_number, $matches)) {
+                // If previously sent to customer, prefix with revision number (e.g. R1-RM-QT-2026-0002, R2-RM-QT-2026-0002)
+                $rev = 1;
+                if (preg_match('/^R(\d+)-(.*)$/i', $quotation->quote_number, $matches)) {
                     $rev = ((int) $matches[1]) + 1;
+                    $base = $matches[2];
+                } elseif (preg_match('/^(.*?)[_-]R(\d+)$/i', $quotation->quote_number, $matches)) {
+                    $rev = ((int) $matches[2]) + 1;
+                    $base = $matches[1];
                 } else {
+                    $base = $quotation->quote_number;
                     $rev = 1;
                 }
-                $quotation->quote_number = "{$base}_R{$rev}";
+                $quotation->quote_number = "R{$rev}-{$base}";
                 $quotation->quote_date = now()->toDateString();
             }
 

@@ -509,6 +509,7 @@ class QuotationTest extends TestCase
             'status' => 'sent',
         ]);
 
+        // First edit after sending -> R1
         $response = $this->post("/quotations/{$quote->id}/reopen", [
             'reason' => 'Revised pricing agreed after client meeting',
         ]);
@@ -516,6 +517,19 @@ class QuotationTest extends TestCase
 
         $quote->refresh();
         $this->assertEquals('draft', $quote->status);
-        $this->assertEquals("{$originalNumber}_R1", $quote->quote_number);
+        $this->assertEquals("R1-{$originalNumber}", $quote->quote_number);
+
+        // Submit, approve, send again
+        $quote->update(['status' => 'sent']);
+
+        // Second edit after sending -> R2
+        $response2 = $this->post("/quotations/{$quote->id}/reopen", [
+            'reason' => 'Second revision requested by client',
+        ]);
+        $response2->assertRedirect("/quotations/builder?id={$quote->id}");
+
+        $quote->refresh();
+        $this->assertEquals('draft', $quote->status);
+        $this->assertEquals("R2-{$originalNumber}", $quote->quote_number);
     }
 }

@@ -68,7 +68,7 @@
                 </button>
                 @endcan
             @elseif($quote->status === 'pending')
-                @can('quotes.approve')
+                @can('approve', $quote)
                 <button class="btn btn-ghost" type="button" onclick="openRejectModal()" style="color: #DC2626; border-color: #FCA5A5;">
                     <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
                     Reject

@@ -532,4 +532,42 @@ class QuotationTest extends TestCase
         $this->assertEquals('draft', $quote->status);
         $this->assertEquals("R2-{$originalNumber}", $quote->quote_number);
     }
+
+    public function test_estimation_user_can_view_approve_button_and_approve_pending_quotation(): void
+    {
+        $estimator = User::where('role_name', 'estimation')->first();
+        $branch = Branch::first();
+        $estimator->update(['branch_id' => $branch->id, 'all_branches' => false]);
+
+        $lead = Lead::where('branch_id', $branch->id)->first();
+        $quote = Quotation::create([
+            'quote_number' => Quotation::nextQuoteNumber(),
+            'lead_id' => $lead->id,
+            'branch_id' => $branch->id,
+            'prepared_by_id' => $estimator->id,
+            'quote_date' => now()->toDateString(),
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'status' => 'pending',
+            'subtotal' => 1000,
+            'vat_amount' => 50,
+            'grand_total' => 1050,
+        ]);
+
+        $this->actingAs($estimator);
+
+        $viewResponse = $this->get("/quotations/builder?id={$quote->id}");
+        $viewResponse->assertOk();
+        $viewResponse->assertSee('openApproveModal()', false);
+        $viewResponse->assertSee('openRejectModal()', false);
+        $viewResponse->assertSee('Approve');
+        $viewResponse->assertSee('Reject');
+
+        $approveResponse = $this->post("/quotations/{$quote->id}/approve");
+        $approveResponse->assertRedirect();
+
+        $quote->refresh();
+        $this->assertEquals('approved', $quote->status);
+        $this->assertEquals($estimator->id, $quote->approved_by_id);
+    }
 }

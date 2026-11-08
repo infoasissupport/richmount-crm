@@ -73,12 +73,28 @@ class QuotationPolicy
 
     public function approve(User $user, Quotation $quote): bool
     {
-        return $user->can('quotes.approve') && $quote->status === 'pending';
+        if (!$user->can('quotes.approve') || $quote->status !== 'pending') {
+            return false;
+        }
+
+        if ($user->isEstimation()) {
+            return $user->canAccessBranch($quote->branch_id);
+        }
+
+        return true;
     }
 
     public function reject(User $user, Quotation $quote): bool
     {
-        return $user->can('quotes.approve') && $quote->status === 'pending';
+        if (!$user->can('quotes.approve') || $quote->status !== 'pending') {
+            return false;
+        }
+
+        if ($user->isEstimation()) {
+            return $user->canAccessBranch($quote->branch_id);
+        }
+
+        return true;
     }
 
     public function send(User $user, Quotation $quote): bool

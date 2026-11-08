@@ -49,3 +49,4 @@ class QuotationSubmittedNotification extends Notification
         ];
     }
 }
+

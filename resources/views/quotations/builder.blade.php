@@ -2244,15 +2244,33 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
         }
 
         var qDateInput = document.querySelector('input[name="quote_date"]');
-        var qDate = qDateInput ? qDateInput.value : '{{ date("d M Y") }}';
+        var qDateRaw = qDateInput ? qDateInput.value : '{{ $quote?->quote_date?->format("Y-m-d") ?? date("Y-m-d") }}';
+        var qDate = qDateRaw;
+        try {
+            var parts = qDateRaw.split('-');
+            if (parts.length === 3) {
+                var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                qDate = parts[2] + ' ' + (months[parseInt(parts[1], 10) - 1] || parts[1]) + ' ' + parts[0];
+            }
+        } catch(e) {}
+
         var quoteNum = '{{ $quote ? $quote->quote_number : "QT-" . date("Y") . "-DRAFT" }}';
-        var clientName = '{{ addslashes($lead->company_name) }}';
-        var clientAddr = '{{ addslashes($lead->address ?? "—") }}';
+        var clientName = '{{ addslashes($lead->company_name ?: ($lead->customer_name ?: "—")) }}';
+        var contactPerson = '{{ addslashes($lead->contact_person ?: ($lead->customer_name ?: "—")) }}';
+        var contactInfo = '{{ addslashes($lead->phone ? $lead->phone . ($lead->email ? " • " . $lead->email : "") : ($lead->email ?: "—")) }}';
         var prNum = '{{ addslashes($lead->rfq_number ?: "N/A") }}';
-        var engineerName = '{{ addslashes(strtoupper($lead->assignedEngineer?->name ?? "SARAH THOMAS")) }}';
+        var validityDays = '{{ $quote->validity_days ?? 30 }} Days';
+        var engineerName = '{{ addslashes(strtoupper($lead->assignedEngineer?->name ?? "—")) }}';
+        var engineerEmail = '{{ addslashes($lead->assignedEngineer?->email ?? "engineer@richmount.ae") }}';
         var subject = '{{ addslashes($lead->subject) }}';
-        var termsVal = document.querySelector('textarea[name="terms_and_conditions"]') ? document.querySelector('textarea[name="terms_and_conditions"]').value : 'Standard commercial terms apply.';
-        var techDescVal = document.querySelector('textarea[name="technical_description"]') ? document.querySelector('textarea[name="technical_description"]').value : '';
+
+        var termsEl = document.querySelector('textarea[name="terms_conditions"]') || document.querySelector('textarea[name="terms_and_conditions"]');
+        var defaultTerms = @json($quote?->terms_conditions ?? "1. 50% Advance payment with confirmed Purchase Order.\n2. 40% Progressive payment against delivery and installation.\n3. 10% Final retention upon completion and client handover.\n4. Quotation valid for 30 calendar days from issue date.");
+        var termsVal = termsEl && termsEl.value.trim() ? termsEl.value.trim() : defaultTerms;
+
+        var techDescEl = document.querySelector('textarea[name="technical_description"]');
+        var defaultTechDesc = @json($quote?->technical_description ?? '');
+        var techDescVal = techDescEl && techDescEl.value.trim() ? techDescEl.value.trim() : defaultTechDesc;
 
         var html = `
             <div class="qdoc">
@@ -2270,9 +2288,10 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
 
                 <table class="qd-info">
                     <tr><th colspan="2">CLIENT DETAILS:</th><th colspan="2">QUOTE DETAILS:</th></tr>
-                    <tr><td class="k">Company Name:</td><td>${clientName}</td><td class="k">Date:</td><td>${qDate}</td></tr>
-                    <tr><td class="k">Address:</td><td>${clientAddr}</td><td class="k">Quote Number:</td><td>${quoteNum}</td></tr>
-                    <tr><td class="k">PR Number:</td><td>${prNum}</td><td class="k">Site Visited By:</td><td>${engineerName}</td></tr>
+                    <tr><td class="k">Company / Client:</td><td>${clientName}</td><td class="k">Date:</td><td>${qDate}</td></tr>
+                    <tr><td class="k">Contact Person:</td><td>${contactPerson}</td><td class="k">Quote Number:</td><td>${quoteNum}</td></tr>
+                    <tr><td class="k">Phone / Email:</td><td>${contactInfo}</td><td class="k">Validity:</td><td>${validityDays}</td></tr>
+                    <tr><td class="k">PR / RFQ Number:</td><td>${prNum}</td><td class="k">Site Visited By:</td><td>${engineerName}</td></tr>
                 </table>
 
                 <div class="qd-proj">PROJECT: ${subject}</div>
@@ -2293,11 +2312,16 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
                     </tbody>
                 </table>
 
-                ${mode === 'tech' && techDescVal ? `<div class="qd-box"><div style="background:#DCE6F1; font-weight:700; padding:4px 6px; font-size:11px; border:1px solid #444;">TECHNICAL DESCRIPTION:</div><div style="border:1px solid #444; border-top:none; padding:6px; font-size:11px; white-space:pre-line;">${techDescVal}</div></div>` : ''}
+                ${techDescVal ? `
+                <table class="qd-box">
+                    <tr><th>TECHNICAL DESCRIPTION &amp; SCOPE OF WORK:</th></tr>
+                    <tr><td><p>${rteEscape(techDescVal)}</p></td></tr>
+                </table>
+                ` : ''}
 
                 <table class="qd-box">
                     <tr><th>TERMS AND CONDITIONS:</th></tr>
-                    <tr><td><p>${termsVal}</p></td></tr>
+                    <tr><td><p>${rteEscape(termsVal)}</p></td></tr>
                 </table>
 
                 ${priced ? `
@@ -2315,7 +2339,7 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
                     <tr><th colspan="2">POINT OF CONTACT</th></tr>
                     <tr><td class="k">Engineer Name:</td><td>${engineerName}</td></tr>
                     <tr><td class="k">Position:</td><td>Project Engineer</td></tr>
-                    <tr><td class="k">Email:</td><td>{{ $lead->assignedEngineer?->email ?? "engineer@richmount.ae" }}</td></tr>
+                    <tr><td class="k">Email:</td><td>${engineerEmail}</td></tr>
                 </table>
 
                 <div class="qd-foot">Office No. 05, Al Wasl Building, Street 47, Al Khor 2. Dubai UAE</div>

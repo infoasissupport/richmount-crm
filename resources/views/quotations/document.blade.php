@@ -48,9 +48,10 @@
 
     <table class="qd-info">
         <tr><th colspan="2">CLIENT DETAILS:</th><th colspan="2">QUOTE DETAILS:</th></tr>
-        <tr><td class="k">Company Name:</td><td>{{ $lead?->company_name ?? '—' }}</td><td class="k">Date:</td><td>{{ $quote->quote_date?->format('d M Y') }}</td></tr>
-        <tr><td class="k">Address:</td><td>—</td><td class="k">Quote Number:</td><td>{{ $quote->quote_number }}</td></tr>
-        <tr><td class="k">PR Number:</td><td>{{ $lead?->rfq_number ?: 'N/A' }}</td><td class="k">Site Visited By:</td><td>{{ $engineerName }}</td></tr>
+        <tr><td class="k">Company / Client:</td><td>{{ $lead?->company_name ?: ($lead?->customer_name ?: '—') }}</td><td class="k">Date:</td><td>{{ $quote->quote_date?->format('d M Y') }}</td></tr>
+        <tr><td class="k">Contact Person:</td><td>{{ $lead?->contact_person ?: ($lead?->customer_name ?: '—') }}</td><td class="k">Quote Number:</td><td>{{ $quote->quote_number }}</td></tr>
+        <tr><td class="k">Phone / Email:</td><td>{{ $lead?->phone ? $lead->phone . ($lead->email ? ' • ' . $lead->email : '') : ($lead?->email ?: '—') }}</td><td class="k">Validity:</td><td>{{ $quote->validity_days ?? 30 }} Days</td></tr>
+        <tr><td class="k">PR / RFQ Number:</td><td>{{ $lead?->rfq_number ?: 'N/A' }}</td><td class="k">Site Visited By:</td><td>{{ $engineerName }}</td></tr>
     </table>
 
     <div class="qd-proj">PROJECT: {{ $lead?->subject }}</div>
@@ -126,16 +127,16 @@
         </tbody>
     </table>
 
-    @if($mode === 'tech' && $quote->technical_description)
+    @if($quote->technical_description)
         <table class="qd-box">
-            <tr><th>TECHNICAL DESCRIPTION:</th></tr>
-            <tr><td><p>{{ $quote->technical_description }}</p></td></tr>
+            <tr><th>TECHNICAL DESCRIPTION &amp; SCOPE OF WORK:</th></tr>
+            <tr><td><p style="white-space: pre-line; margin: 0; line-height: 1.6;">{{ $quote->technical_description }}</p></td></tr>
         </table>
     @endif
 
     <table class="qd-box">
         <tr><th>TERMS AND CONDITIONS:</th></tr>
-        <tr><td><p>{{ $quote->terms_conditions ?: 'Standard commercial terms apply.' }}</p></td></tr>
+        <tr><td><p style="white-space: pre-line; margin: 0; line-height: 1.6;">{{ $quote->terms_conditions ?: 'Standard commercial terms apply.' }}</p></td></tr>
     </table>
 
     @if($priced)

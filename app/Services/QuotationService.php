@@ -107,9 +107,9 @@ class QuotationService
                 // an emptied discount box arrives as null: that means no discount, not "keep the old one"
                 'discount_value' => array_key_exists('discount_value', $data) ? ($data['discount_value'] ?? 0) : $quotation->discount_value,
                 'vat_rate' => $data['vat_rate'] ?? $quotation->vat_rate,
-                'technical_description' => $data['technical_description'] ?? $quotation->technical_description,
-                'terms_conditions' => $data['terms_conditions'] ?? $quotation->terms_conditions,
-                'internal_notes' => $data['internal_notes'] ?? $quotation->internal_notes,
+                'technical_description' => array_key_exists('technical_description', $data) ? $data['technical_description'] : $quotation->technical_description,
+                'terms_conditions' => array_key_exists('terms_conditions', $data) ? $data['terms_conditions'] : $quotation->terms_conditions,
+                'internal_notes' => array_key_exists('internal_notes', $data) ? $data['internal_notes'] : $quotation->internal_notes,
                 'auto_saved_at' => now(),
             ]);
 

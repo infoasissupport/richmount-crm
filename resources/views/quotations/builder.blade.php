@@ -576,7 +576,7 @@
                         </label>
                         <label class="field full">
                             <span class="field-label">Terms &amp; Conditions</span>
-                            <textarea name="terms_conditions" rows="4" maxlength="5000" placeholder="Payment milestones, validity, warranty, client obligations...">{{ old('terms_conditions', $quote?->terms_conditions ?? "1. 50% Advance payment with confirmed Purchase Order.\n2. 40% Progressive payment against delivery and installation.\n3. 10% Final retention upon completion and client handover.\n4. Quotation valid for 30 calendar days from issue date.") }}</textarea>
+                            <textarea name="terms_conditions" rows="4" maxlength="5000" placeholder="Payment milestones, validity, warranty, client obligations...">{{ old('terms_conditions', $quote ? $quote->terms_conditions : "1. 50% Advance payment with confirmed Purchase Order.\n2. 40% Progressive payment against delivery and installation.\n3. 10% Final retention upon completion and client handover.\n4. Quotation valid for 30 calendar days from issue date.") }}</textarea>
                         </label>
                         <label class="field full">
                             <span class="field-label">Internal Notes (Not printed on client quotation)</span>
@@ -2265,12 +2265,10 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
         var subject = '{{ addslashes($lead->subject) }}';
 
         var termsEl = document.querySelector('textarea[name="terms_conditions"]') || document.querySelector('textarea[name="terms_and_conditions"]');
-        var defaultTerms = @json($quote?->terms_conditions ?? "1. 50% Advance payment with confirmed Purchase Order.\n2. 40% Progressive payment against delivery and installation.\n3. 10% Final retention upon completion and client handover.\n4. Quotation valid for 30 calendar days from issue date.");
-        var termsVal = termsEl && termsEl.value.trim() ? termsEl.value.trim() : defaultTerms;
+        var termsVal = termsEl ? termsEl.value.trim() : @json($quote ? ($quote->terms_conditions ?? '') : "1. 50% Advance payment with confirmed Purchase Order.\n2. 40% Progressive payment against delivery and installation.\n3. 10% Final retention upon completion and client handover.\n4. Quotation valid for 30 calendar days from issue date.");
 
         var techDescEl = document.querySelector('textarea[name="technical_description"]');
-        var defaultTechDesc = @json($quote?->technical_description ?? '');
-        var techDescVal = techDescEl && techDescEl.value.trim() ? techDescEl.value.trim() : defaultTechDesc;
+        var techDescVal = techDescEl ? techDescEl.value.trim() : @json($quote?->technical_description ?? '');
 
         var html = `
             <div class="qdoc">
@@ -2319,10 +2317,12 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
                 </table>
                 ` : ''}
 
+                ${termsVal ? `
                 <table class="qd-box">
                     <tr><th>TERMS AND CONDITIONS:</th></tr>
                     <tr><td><p>${rteEscape(termsVal)}</p></td></tr>
                 </table>
+                ` : ''}
 
                 ${priced ? `
                 <table class="qd-box">

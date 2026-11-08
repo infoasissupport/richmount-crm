@@ -632,4 +632,67 @@ class QuotationTest extends TestCase
         $builderResponse->assertSee('Contact Person:');
         $builderResponse->assertSee('Phone / Email:');
     }
+
+    public function test_quotation_terms_and_conditions_can_be_removed_and_does_not_revert_to_default(): void
+    {
+        $estimator = User::where('role_name', 'estimation')->first();
+        $branch = Branch::first();
+        $estimator->update(['branch_id' => $branch->id, 'all_branches' => false]);
+
+        $engineer = User::where('role_name', 'engineer')->first();
+
+        $lead = Lead::create([
+            'lead_number' => Lead::nextLeadNumber(),
+            'branch_id' => $branch->id,
+            'company_name' => 'Manohar',
+            'customer_name' => 'Manohar',
+            'contact_person' => 'Manohar',
+            'phone' => '9645143506',
+            'email' => 'manoharan@gmail.com',
+            'rfq_number' => '27/96',
+            'subject' => 'Renovation Project',
+            'assigned_engineer_id' => $engineer->id,
+            'status' => 'new',
+            'created_by_id' => $estimator->id,
+        ]);
+
+        $quote = Quotation::create([
+            'quote_number' => Quotation::nextQuoteNumber(),
+            'lead_id' => $lead->id,
+            'branch_id' => $branch->id,
+            'prepared_by_id' => $engineer->id,
+            'quote_date' => now()->toDateString(),
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'terms_conditions' => '1. Old terms',
+            'status' => 'draft',
+            'subtotal' => 1000,
+            'vat_amount' => 50,
+            'grand_total' => 1050,
+        ]);
+
+        $this->actingAs($estimator);
+
+        // Update/autosave with empty terms_conditions
+        $response = $this->put(route('quotations.update', $quote), [
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'terms_conditions' => '',
+        ]);
+        $response->assertRedirect();
+
+        $quote->refresh();
+        $this->assertNull($quote->terms_conditions);
+
+        // Builder page should not populate textarea with default terms
+        $builderResponse = $this->get("/quotations/builder?id={$quote->id}");
+        $builderResponse->assertOk();
+        $builderResponse->assertDontSee('50% Advance payment with confirmed Purchase Order');
+
+        // Document view should not render terms table
+        $docResponse = $this->get(route('quotations.document', ['quotation' => $quote->id, 'mode' => 'tax']));
+        $docResponse->assertOk();
+        $docResponse->assertDontSee('TERMS AND CONDITIONS:');
+        $docResponse->assertDontSee('Standard commercial terms apply.');
+    }
 }

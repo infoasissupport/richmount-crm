@@ -134,10 +134,12 @@
         </table>
     @endif
 
-    <table class="qd-box">
-        <tr><th>TERMS AND CONDITIONS:</th></tr>
-        <tr><td><p style="white-space: pre-line; margin: 0; line-height: 1.6;">{{ $quote->terms_conditions ?: 'Standard commercial terms apply.' }}</p></td></tr>
-    </table>
+    @if($quote->terms_conditions)
+        <table class="qd-box">
+            <tr><th>TERMS AND CONDITIONS:</th></tr>
+            <tr><td><p style="white-space: pre-line; margin: 0; line-height: 1.6;">{{ $quote->terms_conditions }}</p></td></tr>
+        </table>
+    @endif
 
     @if($priced)
         <table class="qd-box">

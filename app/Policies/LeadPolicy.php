@@ -19,7 +19,7 @@ class LeadPolicy
                 return true;
             }
             if ($user->isEstimation()) {
-                return $user->all_branches || $user->branch_id === $lead->branch_id;
+                return $user->canAccessBranch($lead->branch_id);
             }
             if ($user->isEngineer()) {
                 return $lead->assigned_engineer_id === $user->id
@@ -37,16 +37,52 @@ class LeadPolicy
 
     public function update(User $user, Lead $lead): bool
     {
-        return $user->can('leads.edit');
+        if (!$user->can('leads.edit')) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($user->isEstimation()) {
+            return $user->canAccessBranch($lead->branch_id);
+        }
+
+        return false;
     }
 
     public function assign(User $user, Lead $lead): bool
     {
-        return $user->can('leads.assign');
+        if (!$user->can('leads.assign')) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($user->isEstimation()) {
+            return $user->canAccessBranch($lead->branch_id);
+        }
+
+        return false;
     }
 
     public function delete(User $user, Lead $lead): bool
     {
-        return $user->can('leads.delete') && $lead->quotations()->count() === 0;
+        if (!$user->can('leads.delete') || $lead->quotations()->count() > 0) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($user->isEstimation()) {
+            return $user->canAccessBranch($lead->branch_id);
+        }
+
+        return false;
     }
 }

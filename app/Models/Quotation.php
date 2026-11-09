@@ -108,12 +108,15 @@ class Quotation extends Model
         $prefix = "RM-QT-{$year}-";
 
         $latest = static::withTrashed()
-            ->where('quote_number', 'like', "{$prefix}%")
+            ->where(function ($q) use ($prefix) {
+                $q->where('quote_number', 'like', "{$prefix}%")
+                  ->orWhere('quote_number', 'like', "%{$prefix}%");
+            })
             ->orderByDesc('id')
             ->first();
 
         $seq = 1;
-        if ($latest && preg_match('/-(\d+)$/', $latest->quote_number, $matches)) {
+        if ($latest && preg_match('/RM-QT-\d{4}-(\d+)/', $latest->quote_number, $matches)) {
             $seq = ((int) $matches[1]) + 1;
         }
 

@@ -280,6 +280,27 @@ class ProjectController extends Controller
     }
 
     /**
+     * Open / activate project without a PO (PO to follow).
+     */
+    public function openProject(Project $project, Request $request): RedirectResponse|JsonResponse
+    {
+        $this->authorize('open', $project);
+
+        $this->projectService->updateStatus($project, 'open', null, $request->user());
+
+        \App\Jobs\SyncProjectToZohoJob::dispatch($project);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Project {$project->project_number} is now Open. Client PO can be added at any time.",
+            ]);
+        }
+
+        return redirect()->back()->with('toast_success', "Project {$project->project_number} is now Open. Client PO can be added at any time.");
+    }
+
+    /**
      * Record client PO and transition project to 'open'.
      */
     public function recordPo(RecordClientPoRequest $request, Project $project): RedirectResponse|JsonResponse
@@ -288,7 +309,16 @@ class ProjectController extends Controller
 
         $data = $request->validated();
         if ($request->hasFile('po_file')) {
-            $data['client_po_file'] = $request->file('po_file')->store('project_po', 'public');
+            $poFile = $request->file('po_file');
+            $data['client_po_file'] = $poFile->store('project_po', 'public');
+            $project->documents()->create([
+                'file_name' => $poFile->getClientOriginalName(),
+                'file_path' => $data['client_po_file'],
+                'file_size' => $poFile->getSize(),
+                'file_type' => $poFile->getClientMimeType(),
+                'kind' => 'po',
+                'uploaded_by_id' => $request->user()->id,
+            ]);
         }
 
         $this->projectService->recordClientPo($project, $data, $request->user());

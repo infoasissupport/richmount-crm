@@ -18,8 +18,12 @@ class ProjectPolicy
             return false;
         }
 
-        if ($user->isSuperAdmin() || $user->isAccountant() || $user->isEstimation() || $user->all_branches) {
+        if ($user->isSuperAdmin() || $user->isAccountant() || $user->all_branches) {
             return true;
+        }
+
+        if ($user->isEstimation()) {
+            return $user->canAccessBranch($project->branch_id);
         }
 
         if ($user->isEngineer()) {
@@ -36,17 +40,17 @@ class ProjectPolicy
 
     public function open(User $user, Project $project): bool
     {
-        return $user->can('projects.open') && $project->status === 'popending';
+        return $user->can('projects.open') && $project->status !== 'closed';
     }
 
     public function update(User $user, Project $project): bool
     {
-        if (!$user->can('projects.edit')) {
-            return false;
-        }
-
         if ($user->isSuperAdmin() || $user->isAccountant()) {
             return true;
+        }
+
+        if (!$user->can('projects.edit')) {
+            return false;
         }
 
         if ($user->isEngineer()) {

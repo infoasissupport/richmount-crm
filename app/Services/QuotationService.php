@@ -7,6 +7,7 @@ use App\Models\Quotation;
 use App\Models\QuotationAttachment;
 use App\Models\QuotationHistory;
 use App\Models\User;
+use App\Notifications\QuotationSubmittedNotification;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -106,9 +107,9 @@ class QuotationService
                 // an emptied discount box arrives as null: that means no discount, not "keep the old one"
                 'discount_value' => array_key_exists('discount_value', $data) ? ($data['discount_value'] ?? 0) : $quotation->discount_value,
                 'vat_rate' => $data['vat_rate'] ?? $quotation->vat_rate,
-                'technical_description' => $data['technical_description'] ?? $quotation->technical_description,
-                'terms_conditions' => $data['terms_conditions'] ?? $quotation->terms_conditions,
-                'internal_notes' => $data['internal_notes'] ?? $quotation->internal_notes,
+                'technical_description' => array_key_exists('technical_description', $data) ? $data['technical_description'] : $quotation->technical_description,
+                'terms_conditions' => array_key_exists('terms_conditions', $data) ? $data['terms_conditions'] : $quotation->terms_conditions,
+                'internal_notes' => array_key_exists('internal_notes', $data) ? $data['internal_notes'] : $quotation->internal_notes,
                 'auto_saved_at' => now(),
             ]);
 
@@ -312,7 +313,49 @@ class QuotationService
 
         AuditService::log('submitted', $quotation, "Submitted quotation {$quotation->quote_number} for approval");
 
+        $this->notifyApproversOnSubmission($quotation, $author);
+
         return $quotation;
+    }
+
+    /**
+     * Notify Estimation User and Super Admin when quotation is submitted for approval.
+     */
+    protected function notifyApproversOnSubmission(Quotation $quotation, User $author): void
+    {
+        $recipients = collect();
+
+        // 1. The estimation user who created the parent lead
+        if ($quotation->lead && $quotation->lead->createdBy) {
+            $recipients->push($quotation->lead->createdBy);
+        }
+
+        // 2. Estimation users for this branch
+        $estimators = User::where('is_active', true)
+            ->where(function ($q) {
+                $q->where('role_name', 'estimation')
+                  ->orWhereHas('roles', fn($rq) => $rq->where('name', 'estimation'));
+            })
+            ->get()
+            ->filter(fn(User $u) => $u->canAccessBranch($quotation->branch_id));
+
+        $recipients = $recipients->merge($estimators);
+
+        // 3. Super Admin accounts
+        $superAdmins = User::where('is_active', true)
+            ->where(function ($q) {
+                $q->where('role_name', 'super_admin')
+                  ->orWhereHas('roles', fn($rq) => $rq->where('name', 'super_admin'));
+            })
+            ->get();
+
+        $recipients = $recipients->merge($superAdmins)
+            ->unique('id')
+            ->reject(fn(User $u) => $u->id === $author->id);
+
+        foreach ($recipients as $recipient) {
+            $recipient->notify(new QuotationSubmittedNotification($quotation, $author));
+        }
     }
 
     /**
@@ -454,14 +497,19 @@ class QuotationService
             $oldNumber = $quotation->quote_number;
 
             if ($wasSent) {
-                // If previously sent to customer, create revision number (e.g. QT-2026-0805_R1, _R2)
-                $base = preg_replace('/_R\d+$/', '', $quotation->quote_number);
-                if (preg_match('/_R(\d+)$/', $quotation->quote_number, $matches)) {
+                // If previously sent to customer, prefix with revision number (e.g. R1-RM-QT-2026-0002, R2-RM-QT-2026-0002)
+                $rev = 1;
+                if (preg_match('/^R(\d+)-(.*)$/i', $quotation->quote_number, $matches)) {
                     $rev = ((int) $matches[1]) + 1;
+                    $base = $matches[2];
+                } elseif (preg_match('/^(.*?)[_-]R(\d+)$/i', $quotation->quote_number, $matches)) {
+                    $rev = ((int) $matches[2]) + 1;
+                    $base = $matches[1];
                 } else {
+                    $base = $quotation->quote_number;
                     $rev = 1;
                 }
-                $quotation->quote_number = "{$base}_R{$rev}";
+                $quotation->quote_number = "R{$rev}-{$base}";
                 $quotation->quote_date = now()->toDateString();
             }
 

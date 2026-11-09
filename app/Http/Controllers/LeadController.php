@@ -9,6 +9,7 @@ use App\Models\Branch;
 use App\Models\Lead;
 use App\Models\LeadActivity;
 use App\Models\User;
+use App\Notifications\LeadAssignedNotification;
 use App\Services\AuditService;
 use App\Services\DashboardService;
 use Illuminate\Http\JsonResponse;
@@ -133,6 +134,13 @@ class LeadController extends Controller
 
         $lead = Lead::create($validated);
 
+        if (!empty($lead->assigned_engineer_id)) {
+            $engineer = User::find($lead->assigned_engineer_id);
+            if ($engineer) {
+                $engineer->notify(new LeadAssignedNotification($lead, $request->user()));
+            }
+        }
+
         // Handle file attachments if uploaded
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
@@ -196,7 +204,15 @@ class LeadController extends Controller
         $old = $lead->toArray();
         $validated = $request->validated();
 
+        $previousEngineerId = $old['assigned_engineer_id'] ?? null;
         $lead->update($validated);
+
+        if (!empty($lead->assigned_engineer_id) && (int) $lead->assigned_engineer_id !== (int) $previousEngineerId) {
+            $engineer = User::find($lead->assigned_engineer_id);
+            if ($engineer) {
+                $engineer->notify(new LeadAssignedNotification($lead, $request->user()));
+            }
+        }
 
         // Attachments added from the edit form are appended to the existing ones
         if ($request->hasFile('attachments')) {
@@ -256,6 +272,8 @@ class LeadController extends Controller
         $engineer = User::findOrFail($request->engineer_id);
         $lead->update(['assigned_engineer_id' => $engineer->id]);
 
+        $engineer->notify(new LeadAssignedNotification($lead, $request->user()));
+
         $lead->activities()->create([
             'user_id' => $request->user()->id,
             'kind' => 'assigned',
@@ -294,8 +312,12 @@ class LeadController extends Controller
                 continue;
             }
             $lead = Lead::find($item['lead_id']);
-            if ($lead && $lead->assigned_engineer_id !== (int) $item['engineer_id']) {
+            if ($lead && (int) $lead->assigned_engineer_id !== (int) $item['engineer_id']) {
                 $lead->update(['assigned_engineer_id' => $item['engineer_id']]);
+                $engineer = User::find($item['engineer_id']);
+                if ($engineer) {
+                    $engineer->notify(new LeadAssignedNotification($lead, $request->user()));
+                }
                 $count++;
             }
         }

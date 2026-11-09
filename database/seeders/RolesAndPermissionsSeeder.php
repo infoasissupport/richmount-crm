@@ -88,7 +88,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $estimation->syncPermissions([
             'dashboard.view',
             'leads.view', 'leads.create', 'leads.edit', 'leads.assign', 'leads.delete',
-            'quotes.view', 'quotes.create', 'quotes.edit', 'quotes.submit', 'quotes.send', 'quotes.award',
+            'quotes.view', 'quotes.create', 'quotes.edit', 'quotes.submit', 'quotes.approve', 'quotes.send', 'quotes.award',
             'projects.view', 'projects.edit',
             'reports.view', 'reports.export',
         ]);
@@ -111,7 +111,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $accountant->syncPermissions([
             'dashboard.view',
             'quotes.view',
-            'projects.view', 'projects.create', 'projects.open',
+            'projects.view', 'projects.create', 'projects.open', 'projects.edit',
             'expenses.view', 'expenses.approve',
             'transfers.view', 'transfers.create', 'transfers.edit', 'transfers.approve',
             'transactions.view', 'transactions.approve',

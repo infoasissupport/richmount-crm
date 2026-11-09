@@ -1,5 +1,7 @@
 @php
     $authUser = auth()->user();
+    $unreadNotifCount = $authUser ? $authUser->unreadNotifications()->count() : 0;
+    $recentNotifications = $authUser ? $authUser->notifications()->take(20)->get() : collect();
     $activeBranchSession = session('active_branch_id');
     $allBranches = \App\Models\Branch::active()->get();
 
@@ -106,10 +108,59 @@
         </button>
 
         {{-- Notifications --}}
-        <button class="tb-btn" id="notifBtn" aria-label="Notifications" aria-haspopup="true">
-            <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bell"/></svg>
-            <span class="badge zero" id="notifCount">0</span>
-        </button>
+        <div class="dropdown-wrap" style="position: relative;">
+            <button class="tb-btn" id="notifBtn" type="button" aria-label="Notifications" aria-haspopup="true" aria-expanded="false" onclick="toggleNotifMenu(event)">
+                <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bell"/></svg>
+                <span class="badge {{ $unreadNotifCount === 0 ? 'zero' : '' }}" id="notifCount" style="{{ $unreadNotifCount === 0 ? 'display: none;' : '' }}">{{ $unreadNotifCount }}</span>
+            </button>
+
+            <div class="popover" id="notifMenuPop" style="display: none; position: absolute !important; right: 0; top: calc(100% + 8px); width: 340px; max-width: 90vw; z-index: 1000; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.18), 0 8px 10px -6px rgba(0,0,0,0.12); border-radius: 8px; background: var(--bg-surface, #fff); border: 1px solid var(--line, #e2e8f0); overflow: hidden;">
+                <div class="notif-head" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--line, #e2e8f0); background: var(--bg, #f8fafc);">
+                    <strong style="font-size: 13.5px; font-weight: 700; color: var(--text, #1e293b);">Notifications</strong>
+                    @if($unreadNotifCount > 0)
+                    <form action="{{ route('notifications.readAll') }}" method="POST" style="margin: 0;">
+                        @csrf
+                        <button type="submit" class="link-btn" style="background: none; border: none; color: var(--primary, #941C3C); font-size: 12px; font-weight: 600; cursor: pointer; padding: 0;">Mark all as read</button>
+                    </form>
+                    @endif
+                </div>
+
+                <div class="notif-list" id="notifList" style="max-height: 380px; overflow-y: auto;">
+                    @forelse($recentNotifications as $n)
+                        @php
+                            $nData = $n->data;
+                            $isUnread = is_null($n->read_at);
+                            $icName = match($nData['type'] ?? '') {
+                                'lead' => 'users',
+                                'quote' => 'file-text',
+                                default => 'bell',
+                            };
+                        @endphp
+                        <form action="{{ route('notifications.read', $n->id) }}" method="POST" style="margin: 0; display: block;">
+                            @csrf
+                            <button type="submit" class="notif n-{{ $nData['type'] ?? 'lead' }} {{ $isUnread ? 'unread' : '' }}" style="width: 100%; border: none; background: {{ $isUnread ? 'rgba(148, 28, 60, 0.04)' : 'transparent' }}; border-bottom: 1px solid var(--line, #f1f5f9); display: flex; gap: 10px; padding: 10px 12px; text-align: left; cursor: pointer; transition: background 0.15s; position: relative;">
+                                <span class="n-ic" style="width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: rgba(148, 28, 60, 0.1); color: var(--primary, #941C3C); flex-shrink: 0; margin-top: 2px;">
+                                    <svg class="ic" style="width: 16px; height: 16px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-{{ $icName }}"/></svg>
+                                </span>
+                                <span style="flex: 1; overflow: hidden;">
+                                    <strong style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text, #1e293b); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $nData['title'] ?? 'Notification' }}</strong>
+                                    <p style="font-size: 11.5px; color: var(--muted, #64748b); margin: 2px 0 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{{ $nData['text'] ?? '' }}</p>
+                                    <small style="display: block; font-size: 10.5px; color: var(--muted, #94a3b8); margin-top: 4px;">{{ $n->created_at->diffForHumans() }}</small>
+                                </span>
+                                @if($isUnread)
+                                <span style="position: absolute; right: 12px; top: 12px; width: 7px; height: 7px; border-radius: 50%; background: var(--primary, #941C3C);"></span>
+                                @endif
+                            </button>
+                        </form>
+                    @empty
+                        <div style="padding: 24px; text-align: center; color: var(--muted, #94a3b8); font-size: 13px;">
+                            <svg class="ic" style="width: 28px; height: 28px; margin: 0 auto 8px; display: block; opacity: 0.5;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bell"/></svg>
+                            No notifications
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+        </div>
 
         {{-- Settings --}}
         @can('settings.view')
@@ -179,7 +230,9 @@
         var pop = document.getElementById('branchMenuPop');
         var btn = document.getElementById('branchBtn');
         var userPop = document.getElementById('userMenuPop');
+        var notifPop = document.getElementById('notifMenuPop');
         if (userPop) userPop.style.display = 'none';
+        if (notifPop) notifPop.style.display = 'none';
         if (!pop) return;
         var isVisible = pop.style.display === 'block';
         pop.style.display = isVisible ? 'none' : 'block';
@@ -194,7 +247,26 @@
         var pop = document.getElementById('userMenuPop');
         var btn = document.getElementById('userBtn');
         var branchPop = document.getElementById('branchMenuPop');
+        var notifPop = document.getElementById('notifMenuPop');
         if (branchPop) branchPop.style.display = 'none';
+        if (notifPop) notifPop.style.display = 'none';
+        if (!pop) return;
+        var isVisible = pop.style.display === 'block';
+        pop.style.display = isVisible ? 'none' : 'block';
+        if (btn) btn.setAttribute('aria-expanded', !isVisible);
+    }
+
+    function toggleNotifMenu(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        var pop = document.getElementById('notifMenuPop');
+        var btn = document.getElementById('notifBtn');
+        var branchPop = document.getElementById('branchMenuPop');
+        var userPop = document.getElementById('userMenuPop');
+        if (branchPop) branchPop.style.display = 'none';
+        if (userPop) userPop.style.display = 'none';
         if (!pop) return;
         var isVisible = pop.style.display === 'block';
         pop.style.display = isVisible ? 'none' : 'block';
@@ -219,6 +291,15 @@
                 if (bBtn) bBtn.setAttribute('aria-expanded', 'false');
             }
         }
+
+        var nBtn = document.getElementById('notifBtn');
+        var nPop = document.getElementById('notifMenuPop');
+        if (nPop && nPop.style.display === 'block') {
+            if (!nPop.contains(e.target) && (!nBtn || !nBtn.contains(e.target))) {
+                nPop.style.display = 'none';
+                if (nBtn) nBtn.setAttribute('aria-expanded', 'false');
+            }
+        }
     });
 
     document.addEventListener('keydown', function(e) {
@@ -236,6 +317,36 @@
                 bPop.style.display = 'none';
                 if (bBtn) bBtn.setAttribute('aria-expanded', 'false');
             }
+
+            var nPop = document.getElementById('notifMenuPop');
+            var nBtn = document.getElementById('notifBtn');
+            if (nPop && nPop.style.display === 'block') {
+                nPop.style.display = 'none';
+                if (nBtn) nBtn.setAttribute('aria-expanded', 'false');
+            }
         }
     });
+
+    function refreshNotifications() {
+        fetch('{{ route('notifications.index') }}', {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (!res || !res.success) return;
+            var badge = document.getElementById('notifCount');
+            if (badge) {
+                badge.textContent = res.unread_count;
+                if (res.unread_count > 0) {
+                    badge.classList.remove('zero');
+                    badge.style.display = '';
+                } else {
+                    badge.classList.add('zero');
+                    badge.style.display = 'none';
+                }
+            }
+        })
+        .catch(function() {});
+    }
+    setInterval(refreshNotifications, 30000);
 </script>

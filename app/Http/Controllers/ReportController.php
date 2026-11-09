@@ -22,6 +22,11 @@ class ReportController extends Controller
      */
     public function index(Request $request): View|JsonResponse
     {
+        $user = $request->user();
+        if (!$user->can('reports.view') && !$user->isSuperAdmin() && !$user->isAccountant()) {
+            abort(403, 'Unauthorized access to reports.');
+        }
+
         $reportType = $request->get('type', 'profitability');
         $filters = [
             'search' => $request->get('search'),
@@ -67,6 +72,11 @@ class ReportController extends Controller
 
     public function project(Project $project, Request $request): View
     {
+        $user = $request->user();
+        if (!$user->can('reports.view') && !$user->isSuperAdmin() && !$user->isAccountant()) {
+            abort(403, 'Unauthorized access to reports.');
+        }
+
         $detail = $this->reportService->projectFinancialDetail($project);
         $detail['income_rows'] = $this->paginateReportRows($detail['income_rows'], $request, 'income_page');
         $detail['expense_rows'] = $this->paginateReportRows($detail['expense_rows'], $request, 'expense_page');
@@ -98,6 +108,11 @@ class ReportController extends Controller
      */
     public function export(Request $request): Response
     {
+        $user = $request->user();
+        if (!$user->can('reports.export') && !$user->isSuperAdmin() && !$user->isAccountant()) {
+            abort(403, 'Unauthorized to export reports.');
+        }
+
         $reportType = $request->get('type', 'profitability');
         $filters = [
             'search' => $request->get('search'),
@@ -126,6 +141,11 @@ class ReportController extends Controller
 
     public function pdf(Request $request): Response
     {
+        $user = $request->user();
+        if (!$user->can('reports.export') && !$user->isSuperAdmin() && !$user->isAccountant()) {
+            abort(403, 'Unauthorized to export reports.');
+        }
+
         $reportType = $request->get('type', 'profitability');
         $filters = [
             'search' => $request->get('search'),

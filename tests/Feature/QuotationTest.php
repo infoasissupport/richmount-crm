@@ -509,6 +509,7 @@ class QuotationTest extends TestCase
             'status' => 'sent',
         ]);
 
+        // First edit after sending -> R1
         $response = $this->post("/quotations/{$quote->id}/reopen", [
             'reason' => 'Revised pricing agreed after client meeting',
         ]);
@@ -516,6 +517,182 @@ class QuotationTest extends TestCase
 
         $quote->refresh();
         $this->assertEquals('draft', $quote->status);
-        $this->assertEquals("{$originalNumber}_R1", $quote->quote_number);
+        $this->assertEquals("R1-{$originalNumber}", $quote->quote_number);
+
+        // Submit, approve, send again
+        $quote->update(['status' => 'sent']);
+
+        // Second edit after sending -> R2
+        $response2 = $this->post("/quotations/{$quote->id}/reopen", [
+            'reason' => 'Second revision requested by client',
+        ]);
+        $response2->assertRedirect("/quotations/builder?id={$quote->id}");
+
+        $quote->refresh();
+        $this->assertEquals('draft', $quote->status);
+        $this->assertEquals("R2-{$originalNumber}", $quote->quote_number);
+    }
+
+    public function test_estimation_user_can_view_approve_button_and_approve_pending_quotation(): void
+    {
+        $estimator = User::where('role_name', 'estimation')->first();
+        $branch = Branch::first();
+        $estimator->update(['branch_id' => $branch->id, 'all_branches' => false]);
+
+        $lead = Lead::where('branch_id', $branch->id)->first();
+        $quote = Quotation::create([
+            'quote_number' => Quotation::nextQuoteNumber(),
+            'lead_id' => $lead->id,
+            'branch_id' => $branch->id,
+            'prepared_by_id' => $estimator->id,
+            'quote_date' => now()->toDateString(),
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'status' => 'pending',
+            'subtotal' => 1000,
+            'vat_amount' => 50,
+            'grand_total' => 1050,
+        ]);
+
+        $this->actingAs($estimator);
+
+        $viewResponse = $this->get("/quotations/builder?id={$quote->id}");
+        $viewResponse->assertOk();
+        $viewResponse->assertSee('openApproveModal()', false);
+        $viewResponse->assertSee('openRejectModal()', false);
+        $viewResponse->assertSee('Approve');
+        $viewResponse->assertSee('Reject');
+
+        $approveResponse = $this->post("/quotations/{$quote->id}/approve");
+        $approveResponse->assertRedirect();
+
+        $quote->refresh();
+        $this->assertEquals('approved', $quote->status);
+        $this->assertEquals($estimator->id, $quote->approved_by_id);
+    }
+
+    public function test_quotation_document_and_builder_preview_render_quotation_and_lead_details(): void
+    {
+        $estimator = User::where('role_name', 'estimation')->first();
+        $branch = Branch::first();
+        $estimator->update(['branch_id' => $branch->id, 'all_branches' => false]);
+
+        $engineer = User::where('role_name', 'engineer')->first();
+
+        $lead = Lead::create([
+            'lead_number' => Lead::nextLeadNumber(),
+            'branch_id' => $branch->id,
+            'company_name' => 'Manohar',
+            'customer_name' => 'Manohar',
+            'contact_person' => 'Manohar',
+            'phone' => '9645143506',
+            'email' => 'manoharan@gmail.com',
+            'rfq_number' => '27/96',
+            'subject' => 'Renovation Project',
+            'assigned_engineer_id' => $engineer->id,
+            'status' => 'new',
+            'created_by_id' => $estimator->id,
+        ]);
+
+        $quote = Quotation::create([
+            'quote_number' => Quotation::nextQuoteNumber(),
+            'lead_id' => $lead->id,
+            'branch_id' => $branch->id,
+            'prepared_by_id' => $engineer->id,
+            'quote_date' => now()->toDateString(),
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'technical_description' => 'aishhhh',
+            'terms_conditions' => "1. 50% Advance payment with confirmed Purchase Order.\n2. 40% Progressive payment against delivery and installation.",
+            'status' => 'sent',
+            'subtotal' => 1000,
+            'vat_amount' => 50,
+            'grand_total' => 1050,
+        ]);
+
+        $this->actingAs($estimator);
+
+        // Verify document route renders technical description & lead contact info even in default 'tax' mode
+        $docResponse = $this->get(route('quotations.document', ['quotation' => $quote->id, 'mode' => 'tax']));
+        $docResponse->assertOk();
+        $docResponse->assertSee('Manohar');
+        $docResponse->assertSee('27/96');
+        $docResponse->assertSee('9645143506');
+        $docResponse->assertSee('manoharan@gmail.com');
+        $docResponse->assertSee('TECHNICAL DESCRIPTION &amp; SCOPE OF WORK:', false);
+        $docResponse->assertSee('aishhhh');
+        $docResponse->assertSee('1. 50% Advance payment with confirmed Purchase Order.');
+
+        // Verify builder view contains the quote data and preview template hooks
+        $builderResponse = $this->get("/quotations/builder?id={$quote->id}");
+        $builderResponse->assertOk();
+        $builderResponse->assertSee('aishhhh');
+        $builderResponse->assertSee('1. 50% Advance payment with confirmed Purchase Order.');
+        $builderResponse->assertSee('Company / Client:');
+        $builderResponse->assertSee('Contact Person:');
+        $builderResponse->assertSee('Phone / Email:');
+    }
+
+    public function test_quotation_terms_and_conditions_can_be_removed_and_does_not_revert_to_default(): void
+    {
+        $estimator = User::where('role_name', 'estimation')->first();
+        $branch = Branch::first();
+        $estimator->update(['branch_id' => $branch->id, 'all_branches' => false]);
+
+        $engineer = User::where('role_name', 'engineer')->first();
+
+        $lead = Lead::create([
+            'lead_number' => Lead::nextLeadNumber(),
+            'branch_id' => $branch->id,
+            'company_name' => 'Manohar',
+            'customer_name' => 'Manohar',
+            'contact_person' => 'Manohar',
+            'phone' => '9645143506',
+            'email' => 'manoharan@gmail.com',
+            'rfq_number' => '27/96',
+            'subject' => 'Renovation Project',
+            'assigned_engineer_id' => $engineer->id,
+            'status' => 'new',
+            'created_by_id' => $estimator->id,
+        ]);
+
+        $quote = Quotation::create([
+            'quote_number' => Quotation::nextQuoteNumber(),
+            'lead_id' => $lead->id,
+            'branch_id' => $branch->id,
+            'prepared_by_id' => $engineer->id,
+            'quote_date' => now()->toDateString(),
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'terms_conditions' => '1. Old terms',
+            'status' => 'draft',
+            'subtotal' => 1000,
+            'vat_amount' => 50,
+            'grand_total' => 1050,
+        ]);
+
+        $this->actingAs($estimator);
+
+        // Update/autosave with empty terms_conditions
+        $response = $this->put(route('quotations.update', $quote), [
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'terms_conditions' => '',
+        ]);
+        $response->assertRedirect();
+
+        $quote->refresh();
+        $this->assertNull($quote->terms_conditions);
+
+        // Builder page should not populate textarea with default terms
+        $builderResponse = $this->get("/quotations/builder?id={$quote->id}");
+        $builderResponse->assertOk();
+        $builderResponse->assertDontSee('50% Advance payment with confirmed Purchase Order');
+
+        // Document view should not render terms table
+        $docResponse = $this->get(route('quotations.document', ['quotation' => $quote->id, 'mode' => 'tax']));
+        $docResponse->assertOk();
+        $docResponse->assertDontSee('TERMS AND CONDITIONS:');
+        $docResponse->assertDontSee('Standard commercial terms apply.');
     }
 }

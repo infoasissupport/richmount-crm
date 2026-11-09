@@ -674,4 +674,113 @@ class ProjectTest extends TestCase
         $detailResponse->assertStatus(200);
         $detailResponse->assertJson(['success' => true]);
     }
+
+    public function test_superadmin_and_accountant_can_create_project_without_po_and_add_po_later(): void
+    {
+        $branch = Branch::firstOrFail();
+        $engineer = User::where('role_name', 'engineer')->firstOrFail();
+
+        // 1. Accountant creates project without PO
+        $accountant = User::where('role_name', 'accountant')->firstOrFail();
+        $this->actingAs($accountant);
+
+        $res1 = $this->post(route('projects.store'), [
+            'name' => 'Accountant Project Without PO',
+            'client_name' => 'Test Client 1',
+            'branch_id' => $branch->id,
+            'engineer_id' => $engineer->id,
+            'contract_value' => 50000,
+            'start_date' => now()->toDateString(),
+            'description' => 'Created without client PO initially',
+        ]);
+        $res1->assertRedirect();
+
+        $project1 = Project::where('name', 'Accountant Project Without PO')->firstOrFail();
+        $this->assertEquals('popending', $project1->status);
+        $this->assertNull($project1->client_po_number);
+
+        // View project as accountant and verify Add PO, Open Project, and Start Work are available
+        $viewRes1 = $this->get(route('projects.show', $project1));
+        $viewRes1->assertOk();
+        $viewRes1->assertSee('Add PO');
+        $viewRes1->assertSee('Open Project');
+        $viewRes1->assertSee('Start Work');
+        $viewRes1->assertSee('PO Pending');
+
+        // Accountant opens project without PO to begin mobilization
+        $openRes = $this->post(route('projects.open', $project1));
+        $openRes->assertRedirect();
+        $project1->refresh();
+        $this->assertEquals('open', $project1->status);
+        $this->assertNull($project1->client_po_number);
+
+        // Can start work without PO
+        $startRes = $this->post(route('projects.start-work', $project1));
+        $startRes->assertRedirect();
+        $project1->refresh();
+        $this->assertEquals('inprogress', $project1->status);
+        $this->assertNull($project1->client_po_number);
+
+        // Accountant adds PO later while in progress
+        $poRes1 = $this->post(route('projects.record-po', $project1), [
+            'client_po_number' => 'PO-ACC-9988',
+            'client_po_date' => now()->toDateString(),
+            'client_po_amount' => 50000,
+        ]);
+        $poRes1->assertRedirect();
+
+        $project1->refresh();
+        $this->assertEquals('inprogress', $project1->status);
+        $this->assertEquals('PO-ACC-9988', $project1->client_po_number);
+
+        // 2. Super Admin creates project without PO
+        $superAdmin = User::where('role_name', 'super_admin')->firstOrFail();
+        $this->actingAs($superAdmin);
+
+        $res2 = $this->post(route('projects.store'), [
+            'name' => 'Superadmin Project Without PO',
+            'client_name' => 'Test Client 2',
+            'branch_id' => $branch->id,
+            'contract_value' => 75000,
+        ]);
+        $res2->assertRedirect();
+
+        $project2 = Project::where('name', 'Superadmin Project Without PO')->firstOrFail();
+        $this->assertEquals('popending', $project2->status);
+
+        // Super Admin adds PO later
+        $poRes2 = $this->post(route('projects.record-po', $project2), [
+            'client_po_number' => 'PO-SA-7766',
+            'client_po_date' => now()->toDateString(),
+            'client_po_amount' => 75000,
+        ]);
+        $poRes2->assertRedirect();
+
+        $project2->refresh();
+        $this->assertEquals('open', $project2->status);
+        $this->assertEquals('PO-SA-7766', $project2->client_po_number);
+    }
+
+    public function test_engineer_cannot_create_project_or_record_client_po(): void
+    {
+        $engineer = User::where('role_name', 'engineer')->firstOrFail();
+        $branch = Branch::firstOrFail();
+        $project = Project::where('status', 'popending')->firstOrFail();
+
+        $this->actingAs($engineer);
+
+        // Cannot create project
+        $this->post(route('projects.store'), [
+            'name' => 'Unauthorized Engineer Project',
+            'client_name' => 'Client',
+            'branch_id' => $branch->id,
+            'contract_value' => 1000,
+        ])->assertForbidden();
+
+        // Cannot record PO
+        $this->post(route('projects.record-po', $project), [
+            'client_po_number' => 'PO-HACK',
+            'client_po_date' => now()->toDateString(),
+        ])->assertForbidden();
+    }
 }

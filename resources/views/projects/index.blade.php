@@ -13,6 +13,14 @@
     <div>
         <h1>Projects</h1>
     </div>
+    <div class="page-actions">
+        @can('projects.create')
+        <button class="btn btn-primary" type="button" onclick="openNewProjectModal()">
+            <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg>
+            New Project
+        </button>
+        @endcan
+    </div>
 </section>
 
 <div class="dash-scroll">
@@ -273,6 +281,13 @@
                                     <a class="act view" href="{{ route('projects.show', $p) }}" title="View Project" aria-label="View project {{ $p->project_number }}">
                                         <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"/></svg>
                                     </a>
+                                    @can('projects.open')
+                                    @if(!$p->client_po_number && $p->status !== 'closed')
+                                    <button class="act" type="button" title="Add Client PO" aria-label="Add Client PO for {{ $p->project_number }}" onclick="openRecordPoModal({{ json_encode($p) }})">
+                                        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-plus"/></svg>
+                                    </button>
+                                    @endif
+                                    @endcan
                                     @can('update', $p)
                                     <button class="act edit" type="button" title="Edit Project" aria-label="Edit project {{ $p->project_number }}" onclick="openEditProjectModal(this)"
                                         data-project-id="{{ $p->id }}"
@@ -401,19 +416,19 @@
 </div>
 
 {{-- Create Project Modal --}}
-<div class="modal-wrap" id="projectModal" style="display: none;">
+<div class="modal-wrap" id="projectModal" style="display: none;" onclick="if(event.target === this) closeNewProjectModal()">
     <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle">
         <div class="modal-head">
             <div>
                 <h3 id="projectModalTitle">Create Project</h3>
-                <p>Initialize project contract, assign engineer, and record client PO</p>
+                <p>Initialize project contract, assign engineer, and optionally record client PO (can be added later)</p>
             </div>
             <button class="icon-btn" type="button" onclick="closeNewProjectModal()" aria-label="Close">
                 <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
             </button>
         </div>
 
-        <form action="{{ route('projects.store') }}" method="POST">
+        <form action="{{ route('projects.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
             <div class="modal-body">
                 <div class="form-grid">
@@ -452,13 +467,18 @@
                     </div>
 
                     <div class="field">
-                        <label class="label" for="projPoNumber">Client PO / LPO Number (Optional)</label>
-                        <input class="input" id="projPoNumber" name="client_po_number" type="text" placeholder="e.g. PO-AFG-9021">
+                        <label class="label" for="projPoNumber">Client PO / LPO Number (Optional &mdash; can be added later)</label>
+                        <input class="input" id="projPoNumber" name="client_po_number" type="text" placeholder="Leave empty if PO not received yet">
                     </div>
 
                     <div class="field">
-                        <label class="label" for="projPoDate">Client PO Date</label>
+                        <label class="label" for="projPoDate">Client PO Date (Optional)</label>
                         <input class="input" id="projPoDate" name="client_po_date" type="date">
+                    </div>
+
+                    <div class="field">
+                        <label class="label" for="projPoFile">Client PO Document (Optional)</label>
+                        <input class="input" id="projPoFile" name="po_file" type="file" accept=".pdf,.png,.jpg,.jpeg">
                     </div>
 
                     <div class="field">

@@ -50,6 +50,11 @@ Route::middleware('auth')->group(function () {
     // Audit Logs
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.index');
 
+    // Notifications
+    Route::get('/notifications', [\App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read-all', [\App\Http\Controllers\NotificationController::class, 'markAllAsRead'])->name('notifications.readAll');
+    Route::post('/notifications/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('notifications.read');
+
     // Phase 2: Leads Management
     Route::post('/leads/bulk-assign', [LeadController::class, 'bulkAssign'])->name('leads.bulk-assign');
     Route::post('/leads/{lead}/assign', [LeadController::class, 'assign'])->name('leads.assign');
@@ -73,6 +78,7 @@ Route::middleware('auth')->group(function () {
 
     // Phase 3: Projects, PO, Work Completion, Invoicing
     Route::post('/projects/from-quote/{quotation}', [\App\Http\Controllers\ProjectController::class, 'createFromQuote'])->name('projects.create-from-quote');
+    Route::post('/projects/{project}/open', [\App\Http\Controllers\ProjectController::class, 'openProject'])->name('projects.open');
     Route::post('/projects/{project}/po', [\App\Http\Controllers\ProjectController::class, 'recordPo'])->name('projects.record-po');
     Route::post('/projects/{project}/start-work', [\App\Http\Controllers\ProjectController::class, 'startWork'])->name('projects.start-work');
     Route::post('/projects/{project}/put-on-hold', [\App\Http\Controllers\ProjectController::class, 'putOnHold'])->name('projects.put-on-hold');

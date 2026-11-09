@@ -121,7 +121,7 @@ class BranchController extends Controller
         $branchId = $request->input('branch_id');
 
         if ($branchId === 'all') {
-            if (!$user->all_branches && !$user->isSuperAdmin()) {
+            if (!$user->all_branches && !$user->isSuperAdmin() && !$user->isAccountant()) {
                 return redirect()->back()->with('toast_error', 'You only have access to your assigned branch.');
             }
             session(['active_branch_id' => 'all']);

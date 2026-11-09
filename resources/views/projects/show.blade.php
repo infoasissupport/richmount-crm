@@ -23,22 +23,40 @@
             <i></i>{{ $project->statusLabel() }}
         </span>
 
-        {{-- Add PO button if PO is missing --}}
-        @if(!$project->hasClientPo() && $project->status !== 'closed')
-            @can('projects.open')
-            <button class="btn {{ $project->status === 'popending' ? 'btn-primary' : 'btn-ghost' }}" type="button" onclick="openRecordPoModal()">
+        {{-- Add / Edit PO button --}}
+        @can('projects.open')
+            @if(!$project->hasClientPo() && $project->status !== 'closed')
+            <button class="btn btn-ghost" type="button" onclick="openRecordPoModal()">
                 <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-plus"/></svg>
                 Add PO
             </button>
+            @elseif($project->status !== 'closed')
+            <button class="btn btn-ghost" type="button" onclick="openRecordPoModal()" title="Update Client PO">
+                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"/></svg>
+                Edit PO
+            </button>
+            @endif
+        @endcan
+
+        {{-- Open Project without PO if in popending --}}
+        @if($project->status === 'popending')
+            @can('projects.open')
+            <form action="{{ route('projects.open', $project) }}" method="POST" style="display:inline;">
+                @csrf
+                <button class="btn btn-primary" type="submit" title="Open project now (Client PO to follow)">
+                    <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
+                    Open Project
+                </button>
+            </form>
             @endcan
         @endif
 
         {{-- Start Work --}}
-        @if($project->status === 'open')
+        @if(in_array($project->status, ['popending', 'open']))
             @can('projects.edit')
             <form action="{{ route('projects.start-work', $project) }}" method="POST" style="display:inline;">
                 @csrf
-                <button class="btn btn-primary" type="submit">
+                <button class="btn {{ $project->status === 'open' ? 'btn-primary' : 'btn-soft' }}" type="submit" title="Start work on site">
                     <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-hard-hat"/></svg>
                     Start Work
                 </button>
@@ -180,9 +198,13 @@
             default => '#i-info',
         };
         $bannerMsg = match($project->status) {
-            'popending' => 'Project created &mdash; waiting for client PO. The Accountant records the PO to officially open the project.',
-            'open' => 'Project is open. Expenses can now be recorded. Start work when site mobilises.',
-            'inprogress' => 'Work in progress. Submit the work completion report when the works are handed over.',
+            'popending' => 'Project created &mdash; waiting for client PO. You can open the project to begin work immediately and add the client PO whenever it arrives.',
+            'open' => $project->hasClientPo()
+                ? 'Project is open. Expenses can now be recorded. Start work when site mobilises.'
+                : 'Project is open (Client PO pending). Expenses can now be recorded. Start work when site mobilises, and add the client PO once received.',
+            'inprogress' => $project->hasClientPo()
+                ? 'Work in progress. Submit the work completion report when the works are handed over.'
+                : 'Work in progress (Client PO pending). Submit the work completion report when works are handed over, and add the client PO once received.',
             'onhold' => 'Project is on hold: ' . ($project->hold_reason ?? 'Awaiting client instructions.') . ' Expenses are blocked until work resumes.',
             'completed' => 'Work completed &mdash; the Accountant must raise the final invoice.',
             'invoicepending' => 'Final invoice raised &mdash; submit payment receipt to close project.',
@@ -295,7 +317,16 @@
                 <dd>{{ $project->assignedEngineer?->name ?? 'Unassigned' }}</dd>
 
                 <dt>Client PO Number</dt>
-                <dd>{{ $project->client_po_number ?? 'PO Pending' }}</dd>
+                <dd>
+                    {{ $project->client_po_number ?? 'PO Pending' }}
+                    @can('projects.open')
+                        @if($project->status !== 'closed')
+                            <button type="button" class="btn btn-ghost xs" style="padding: 2px 8px; font-size: 11px; margin-left: 8px;" onclick="openRecordPoModal()">
+                                {{ $project->hasClientPo() ? 'Edit PO' : '+ Add PO' }}
+                            </button>
+                        @endif
+                    @endcan
+                </dd>
 
                 <dt>Client PO Date</dt>
                 <dd>{{ $project->client_po_date ? $project->client_po_date->format('d M Y') : '&mdash;' }}</dd>

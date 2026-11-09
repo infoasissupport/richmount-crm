@@ -37,9 +37,7 @@ class LeadTest extends TestCase
         $response = $this->get('/leads');
         $response->assertStatus(200);
         $response->assertSee('openNewLeadModal()', false);
-        $response->assertSee('openAssignBoardModal()', false);
         $response->assertSee('id="leadModal"', false);
-        $response->assertSee('id="assignBoardModal"', false);
     }
 
     public function test_engineer_only_sees_assigned_active_leads(): void

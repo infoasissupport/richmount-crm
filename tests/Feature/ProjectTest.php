@@ -699,13 +699,29 @@ class ProjectTest extends TestCase
         $this->assertEquals('popending', $project1->status);
         $this->assertNull($project1->client_po_number);
 
-        // View project as accountant and verify Add PO is available
+        // View project as accountant and verify Add PO, Open Project, and Start Work are available
         $viewRes1 = $this->get(route('projects.show', $project1));
         $viewRes1->assertOk();
         $viewRes1->assertSee('Add PO');
+        $viewRes1->assertSee('Open Project');
+        $viewRes1->assertSee('Start Work');
         $viewRes1->assertSee('PO Pending');
 
-        // Accountant adds PO later
+        // Accountant opens project without PO to begin mobilization
+        $openRes = $this->post(route('projects.open', $project1));
+        $openRes->assertRedirect();
+        $project1->refresh();
+        $this->assertEquals('open', $project1->status);
+        $this->assertNull($project1->client_po_number);
+
+        // Can start work without PO
+        $startRes = $this->post(route('projects.start-work', $project1));
+        $startRes->assertRedirect();
+        $project1->refresh();
+        $this->assertEquals('inprogress', $project1->status);
+        $this->assertNull($project1->client_po_number);
+
+        // Accountant adds PO later while in progress
         $poRes1 = $this->post(route('projects.record-po', $project1), [
             'client_po_number' => 'PO-ACC-9988',
             'client_po_date' => now()->toDateString(),
@@ -714,7 +730,7 @@ class ProjectTest extends TestCase
         $poRes1->assertRedirect();
 
         $project1->refresh();
-        $this->assertEquals('open', $project1->status);
+        $this->assertEquals('inprogress', $project1->status);
         $this->assertEquals('PO-ACC-9988', $project1->client_po_number);
 
         // 2. Super Admin creates project without PO

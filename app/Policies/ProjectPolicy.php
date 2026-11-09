@@ -45,12 +45,12 @@ class ProjectPolicy
 
     public function update(User $user, Project $project): bool
     {
-        if (!$user->can('projects.edit')) {
-            return false;
-        }
-
         if ($user->isSuperAdmin() || $user->isAccountant()) {
             return true;
+        }
+
+        if (!$user->can('projects.edit')) {
+            return false;
         }
 
         if ($user->isEngineer()) {

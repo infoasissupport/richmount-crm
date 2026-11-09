@@ -111,7 +111,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $accountant->syncPermissions([
             'dashboard.view',
             'quotes.view',
-            'projects.view', 'projects.create', 'projects.open',
+            'projects.view', 'projects.create', 'projects.open', 'projects.edit',
             'expenses.view', 'expenses.approve',
             'transfers.view', 'transfers.create', 'transfers.edit', 'transfers.approve',
             'transactions.view', 'transactions.approve',

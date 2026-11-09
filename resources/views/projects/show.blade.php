@@ -23,15 +23,20 @@
             <i></i>{{ $project->statusLabel() }}
         </span>
 
-        {{-- Add PO button if PO is missing --}}
-        @if(!$project->hasClientPo() && $project->status !== 'closed')
-            @can('projects.open')
+        {{-- Add / Edit PO button --}}
+        @can('projects.open')
+            @if(!$project->hasClientPo() && $project->status !== 'closed')
             <button class="btn {{ $project->status === 'popending' ? 'btn-primary' : 'btn-ghost' }}" type="button" onclick="openRecordPoModal()">
                 <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file-plus"/></svg>
                 Add PO
             </button>
-            @endcan
-        @endif
+            @elseif($project->status !== 'closed')
+            <button class="btn btn-ghost" type="button" onclick="openRecordPoModal()" title="Update Client PO">
+                <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"/></svg>
+                Edit PO
+            </button>
+            @endif
+        @endcan
 
         {{-- Start Work --}}
         @if($project->status === 'open')
@@ -295,7 +300,16 @@
                 <dd>{{ $project->assignedEngineer?->name ?? 'Unassigned' }}</dd>
 
                 <dt>Client PO Number</dt>
-                <dd>{{ $project->client_po_number ?? 'PO Pending' }}</dd>
+                <dd>
+                    {{ $project->client_po_number ?? 'PO Pending' }}
+                    @can('projects.open')
+                        @if($project->status !== 'closed')
+                            <button type="button" class="btn btn-ghost xs" style="padding: 2px 8px; font-size: 11px; margin-left: 8px;" onclick="openRecordPoModal()">
+                                {{ $project->hasClientPo() ? 'Edit PO' : '+ Add PO' }}
+                            </button>
+                        @endif
+                    @endcan
+                </dd>
 
                 <dt>Client PO Date</dt>
                 <dd>{{ $project->client_po_date ? $project->client_po_date->format('d M Y') : '&mdash;' }}</dd>

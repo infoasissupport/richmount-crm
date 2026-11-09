@@ -40,7 +40,7 @@ class ProjectPolicy
 
     public function open(User $user, Project $project): bool
     {
-        return $user->can('projects.open') && $project->status === 'popending';
+        return $user->can('projects.open') && $project->status !== 'closed';
     }
 
     public function update(User $user, Project $project): bool

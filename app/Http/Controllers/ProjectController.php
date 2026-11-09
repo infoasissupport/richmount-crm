@@ -288,7 +288,16 @@ class ProjectController extends Controller
 
         $data = $request->validated();
         if ($request->hasFile('po_file')) {
-            $data['client_po_file'] = $request->file('po_file')->store('project_po', 'public');
+            $poFile = $request->file('po_file');
+            $data['client_po_file'] = $poFile->store('project_po', 'public');
+            $project->documents()->create([
+                'file_name' => $poFile->getClientOriginalName(),
+                'file_path' => $data['client_po_file'],
+                'file_size' => $poFile->getSize(),
+                'file_type' => $poFile->getClientMimeType(),
+                'kind' => 'po',
+                'uploaded_by_id' => $request->user()->id,
+            ]);
         }
 
         $this->projectService->recordClientPo($project, $data, $request->user());

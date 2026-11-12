@@ -509,28 +509,36 @@ class QuotationTest extends TestCase
             'status' => 'sent',
         ]);
 
-        // First edit after sending -> R1
+        // First edit after sending -> keeps original as 'sent' and creates R1 as 'draft'
         $response = $this->post("/quotations/{$quote->id}/reopen", [
             'reason' => 'Revised pricing agreed after client meeting',
         ]);
-        $response->assertRedirect("/quotations/builder?id={$quote->id}");
 
-        $quote->refresh();
-        $this->assertEquals('draft', $quote->status);
-        $this->assertEquals("R1-{$originalNumber}", $quote->quote_number);
+        $rev1 = Quotation::where('quote_number', "R1-{$originalNumber}")->firstOrFail();
+        $response->assertRedirect("/quotations/builder?id={$rev1->id}");
+        $this->assertEquals('draft', $rev1->status);
+        $this->assertEquals('sent', $quote->fresh()->status);
+        $this->assertEquals($originalNumber, $quote->fresh()->quote_number);
 
-        // Submit, approve, send again
-        $quote->update(['status' => 'sent']);
+        // Submit, approve, send R1
+        $rev1->update(['status' => 'sent']);
 
-        // Second edit after sending -> R2
-        $response2 = $this->post("/quotations/{$quote->id}/reopen", [
+        // Second edit after sending -> keeps R1 as 'sent' and creates R2 as 'draft'
+        $response2 = $this->post("/quotations/{$rev1->id}/reopen", [
             'reason' => 'Second revision requested by client',
         ]);
-        $response2->assertRedirect("/quotations/builder?id={$quote->id}");
 
-        $quote->refresh();
-        $this->assertEquals('draft', $quote->status);
-        $this->assertEquals("R2-{$originalNumber}", $quote->quote_number);
+        $rev2 = Quotation::where('quote_number', "R2-{$originalNumber}")->firstOrFail();
+        $response2->assertRedirect("/quotations/builder?id={$rev2->id}");
+        $this->assertEquals('draft', $rev2->status);
+        $this->assertEquals('sent', $rev1->fresh()->status);
+
+        // All versions appear in the quotations list
+        $indexRes = $this->get(route('quotations.index'));
+        $indexRes->assertOk();
+        $indexRes->assertSee($originalNumber);
+        $indexRes->assertSee("R1-{$originalNumber}");
+        $indexRes->assertSee("R2-{$originalNumber}");
     }
 
     public function test_estimation_user_can_view_approve_button_and_approve_pending_quotation(): void

@@ -497,7 +497,7 @@ class QuotationService
             $oldNumber = $quotation->quote_number;
 
             if ($wasSent) {
-                // If previously sent to customer, prefix with revision number (e.g. R1-RM-QT-2026-0002, R2-RM-QT-2026-0002)
+                // Keep the sent quotation intact in history and create a new revision (R1-..., R2-...)
                 $rev = 1;
                 if (preg_match('/^R(\d+)-(.*)$/i', $quotation->quote_number, $matches)) {
                     $rev = ((int) $matches[1]) + 1;
@@ -507,24 +507,51 @@ class QuotationService
                     $base = $matches[1];
                 } else {
                     $base = $quotation->quote_number;
-                    $rev = 1;
                 }
-                $quotation->quote_number = "R{$rev}-{$base}";
-                $quotation->quote_date = now()->toDateString();
-            }
 
-            $quotation->status = 'draft';
-            $quotation->approved_by_id = null;
-            $quotation->rejection_reason = null;
-            $quotation->auto_saved_at = now();
+                while (Quotation::where('quote_number', "R{$rev}-{$base}")->exists()) {
+                    $rev++;
+                }
+
+                $target = $quotation->replicate([
+                    'quote_number', 'status', 'approved_by_id', 'rejection_reason', 'sent_at', 'award_date', 'created_at', 'updated_at',
+                ]);
+                $target->quote_number = "R{$rev}-{$base}";
+                $target->quote_date = now()->toDateString();
+                $target->status = 'draft';
+                $target->approved_by_id = null;
+                $target->rejection_reason = null;
+                $target->auto_saved_at = now();
+                $target->save();
+
+                foreach ($quotation->lineItems as $item) {
+                    $target->lineItems()->create($item->replicate(['quotation_id', 'created_at', 'updated_at'])->toArray());
+                }
+
+                foreach ($quotation->attachments as $att) {
+                    $target->attachments()->create($att->replicate(['quotation_id', 'created_at', 'updated_at'])->toArray());
+                }
+
+                QuotationHistory::create([
+                    'quotation_id' => $quotation->id,
+                    'user_id' => $user->id,
+                    'action' => 'reopened',
+                    'text' => "Created revision {$target->quote_number} for editing: {$reason}",
+                ]);
+            } else {
+                $quotation->status = 'draft';
+                $quotation->approved_by_id = null;
+                $quotation->rejection_reason = null;
+                $quotation->auto_saved_at = now();
+                $quotation->save();
+                $target = $quotation;
+            }
 
             // Reassign lead engineer if specified
             if ($engineerId) {
                 $engineer = User::findOrFail($engineerId);
-                $quotation->lead?->update(['assigned_engineer_id' => $engineer->id]);
+                $target->lead?->update(['assigned_engineer_id' => $engineer->id]);
             }
-
-            $quotation->save();
 
             foreach ($revisedScopeDocuments as $document) {
                 $extension = strtolower($document->getClientOriginalExtension());
@@ -537,7 +564,7 @@ class QuotationService
                     'public'
                 );
 
-                $quotation->attachments()->create([
+                $target->attachments()->create([
                     'file_name' => mb_substr($document->getClientOriginalName(), 0, 255),
                     'file_path' => $path,
                     'file_size' => $document->getSize(),
@@ -545,24 +572,24 @@ class QuotationService
             }
 
             // Sync lead stage back to draft
-            if ($quotation->lead && in_array($quotation->lead->stage, ['approved', 'sent'])) {
-                $quotation->lead->update(['stage' => 'draft']);
+            if ($target->lead && in_array($target->lead->stage, ['approved', 'sent'])) {
+                $target->lead->update(['stage' => 'draft']);
             }
 
             $actionText = $wasSent
-                ? "Quotation revised ({$oldNumber} -> {$quotation->quote_number}) and moved to draft for editing: {$reason}"
+                ? "Created revision {$target->quote_number} from {$oldNumber} for editing: {$reason}"
                 : "Quotation moved to draft for editing: {$reason}";
 
             QuotationHistory::create([
-                'quotation_id' => $quotation->id,
+                'quotation_id' => $target->id,
                 'user_id' => $user->id,
                 'action' => 'reopened',
                 'text' => $actionText,
             ]);
 
-            AuditService::log('reopened', $quotation, $actionText);
+            AuditService::log('reopened', $target, $actionText);
 
-            return $quotation;
+            return $target;
         });
     }
 }

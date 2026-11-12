@@ -695,4 +695,48 @@ class QuotationTest extends TestCase
         $docResponse->assertDontSee('TERMS AND CONDITIONS:');
         $docResponse->assertDontSee('Standard commercial terms apply.');
     }
+
+    public function test_quotations_index_shows_all_quotations_for_a_lead_matching_kpi_count(): void
+    {
+        $estimator = User::where('role_name', 'estimation')->firstOrFail();
+        $branch = Branch::firstOrFail();
+        $estimator->update(['branch_id' => $branch->id, 'all_branches' => false]);
+
+        $lead = Lead::where('branch_id', $branch->id)->firstOrFail();
+
+        $q1 = Quotation::create([
+            'quote_number' => 'RM-QT-TEST-001',
+            'lead_id' => $lead->id,
+            'branch_id' => $branch->id,
+            'prepared_by_id' => $estimator->id,
+            'quote_date' => now()->toDateString(),
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'status' => 'sent',
+            'subtotal' => 100,
+            'vat_amount' => 5,
+            'grand_total' => 105,
+        ]);
+
+        $q2 = Quotation::create([
+            'quote_number' => 'RM-QT-TEST-002',
+            'lead_id' => $lead->id,
+            'branch_id' => $branch->id,
+            'prepared_by_id' => $estimator->id,
+            'quote_date' => now()->toDateString(),
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'status' => 'draft',
+            'subtotal' => 200,
+            'vat_amount' => 10,
+            'grand_total' => 210,
+        ]);
+
+        $this->actingAs($estimator);
+
+        $response = $this->get(route('quotations.index'));
+        $response->assertOk();
+        $response->assertSee('RM-QT-TEST-001');
+        $response->assertSee('RM-QT-TEST-002');
+    }
 }

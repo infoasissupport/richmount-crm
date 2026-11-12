@@ -37,10 +37,7 @@ class QuotationController extends Controller
 
         $tab = $request->get('tab', 'all');
 
-        // one row per lead/project: its latest quotation (Quotation::scopeLatestPerLead); access, filters,
-        // search, sorting and paging then apply to that list
-        $query = Quotation::latestPerLead()
-            ->accessibleBy($user)
+        $query = Quotation::accessibleBy($user)
             ->with(['lead.assignedEngineer', 'branch', 'preparedBy', 'project'])
             ->when($tab === 'awaiting_project', fn ($q) => $q->where('status', 'awarded')->whereDoesntHave('project'))
             ->when($tab !== 'all' && $tab !== 'awaiting_project', fn ($q) => $q->where('status', $tab))
@@ -95,8 +92,8 @@ class QuotationController extends Controller
             'awarded_value' => (clone $baseKpiQuery)->where('status', 'awarded')->sum('grand_total'),
         ];
 
-        // status dropdown counts match the table: one (latest) quotation per lead/project
-        $latestQuery = Quotation::latestPerLead()->accessibleBy($user);
+        // status dropdown counts match the table: all accessible quotations
+        $latestQuery = Quotation::accessibleBy($user);
         $tabCounts = [
             'all' => (clone $latestQuery)->count(),
             'draft' => (clone $latestQuery)->where('status', 'draft')->count(),

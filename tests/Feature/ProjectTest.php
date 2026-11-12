@@ -783,4 +783,90 @@ class ProjectTest extends TestCase
             'client_po_date' => now()->toDateString(),
         ])->assertForbidden();
     }
+
+    public function test_engineer_can_add_vehicle_from_expense_modal_and_submit_fuel_expense(): void
+    {
+        $engineer = User::where('role_name', 'engineer')->firstOrFail();
+        $project = Project::where('engineer_id', $engineer->id)
+            ->whereIn('status', ['open', 'inprogress', 'completed', 'invoicepending'])
+            ->firstOrFail();
+
+        $this->actingAs($engineer);
+
+        $this->get(route('projects.show', $project))
+            ->assertOk()
+            ->assertSee('value="__add_new_vehicle__"', false);
+
+        $vehicleResponse = $this->postJson(route('vehicles.store'), [
+            'registration_number' => 'DXB E 99881',
+        ]);
+
+        $vehicleResponse->assertCreated()
+            ->assertJsonPath('vehicle.registration_number', 'DXB E 99881');
+
+        $vehicleId = $vehicleResponse->json('vehicle.id');
+
+        $this->from(route('projects.show', $project))
+            ->post(route('expenses.store'), [
+                'project_id' => $project->id,
+                'vehicle_id' => $vehicleId,
+                'category' => 'fuel',
+                'type' => 'cash',
+                'subtotal' => 120,
+                'date' => now()->toDateString(),
+                'description' => 'Petrol fill-up by engineer',
+            ])
+            ->assertRedirect(route('projects.show', $project));
+
+        $this->assertDatabaseHas('expenses', [
+            'project_id' => $project->id,
+            'vehicle_id' => $vehicleId,
+            'category' => 'fuel',
+        ]);
+    }
+
+    public function test_user_can_add_company_card_and_submit_card_expense(): void
+    {
+        $engineer = User::where('role_name', 'engineer')->firstOrFail();
+        $project = Project::where('engineer_id', $engineer->id)
+            ->whereIn('status', ['open', 'inprogress', 'completed', 'invoicepending'])
+            ->firstOrFail();
+
+        $this->actingAs($engineer);
+
+        $cardResponse = $this->postJson(route('company-cards.store'), [
+            'card_name' => 'Emirates NBD Corporate',
+            'last_four' => '4821',
+        ]);
+
+        $cardResponse->assertCreated()
+            ->assertJsonPath('card.card_name', 'Emirates NBD Corporate')
+            ->assertJsonPath('card.last_four', '4821')
+            ->assertJsonPath('card.label', 'Emirates NBD Corporate (•••• 4821)');
+
+        $cardId = $cardResponse->json('card.id');
+
+        $this->get(route('projects.show', $project))
+            ->assertOk()
+            ->assertSee('Emirates NBD Corporate (•••• 4821)')
+            ->assertSee('value="__add_new_card__"', false);
+
+        $this->from(route('projects.show', $project))
+            ->post(route('expenses.store'), [
+                'project_id' => $project->id,
+                'category' => 'materials',
+                'type' => 'card',
+                'company_card_id' => $cardId,
+                'subtotal' => 250,
+                'date' => now()->toDateString(),
+                'description' => 'Materials bought on company card',
+            ])
+            ->assertRedirect(route('projects.show', $project));
+
+        $this->assertDatabaseHas('expenses', [
+            'project_id' => $project->id,
+            'type' => 'card',
+            'company_card_id' => $cardId,
+        ]);
+    }
 }

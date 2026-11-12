@@ -509,28 +509,36 @@ class QuotationTest extends TestCase
             'status' => 'sent',
         ]);
 
-        // First edit after sending -> R1
+        // First edit after sending -> keeps original as 'sent' and creates _R1 as 'draft'
         $response = $this->post("/quotations/{$quote->id}/reopen", [
             'reason' => 'Revised pricing agreed after client meeting',
         ]);
-        $response->assertRedirect("/quotations/builder?id={$quote->id}");
 
-        $quote->refresh();
-        $this->assertEquals('draft', $quote->status);
-        $this->assertEquals("R1-{$originalNumber}", $quote->quote_number);
+        $rev1 = Quotation::where('quote_number', "{$originalNumber}_R1")->firstOrFail();
+        $response->assertRedirect("/quotations/builder?id={$rev1->id}");
+        $this->assertEquals('draft', $rev1->status);
+        $this->assertEquals('sent', $quote->fresh()->status);
+        $this->assertEquals($originalNumber, $quote->fresh()->quote_number);
 
-        // Submit, approve, send again
-        $quote->update(['status' => 'sent']);
+        // Submit, approve, send R1
+        $rev1->update(['status' => 'sent']);
 
-        // Second edit after sending -> R2
-        $response2 = $this->post("/quotations/{$quote->id}/reopen", [
+        // Second edit after sending -> keeps _R1 as 'sent' and creates _R2 as 'draft'
+        $response2 = $this->post("/quotations/{$rev1->id}/reopen", [
             'reason' => 'Second revision requested by client',
         ]);
-        $response2->assertRedirect("/quotations/builder?id={$quote->id}");
 
-        $quote->refresh();
-        $this->assertEquals('draft', $quote->status);
-        $this->assertEquals("R2-{$originalNumber}", $quote->quote_number);
+        $rev2 = Quotation::where('quote_number', "{$originalNumber}_R2")->firstOrFail();
+        $response2->assertRedirect("/quotations/builder?id={$rev2->id}");
+        $this->assertEquals('draft', $rev2->status);
+        $this->assertEquals('sent', $rev1->fresh()->status);
+
+        // All versions appear in the quotations list
+        $indexRes = $this->get(route('quotations.index'));
+        $indexRes->assertOk();
+        $indexRes->assertSee($originalNumber);
+        $indexRes->assertSee("{$originalNumber}_R1");
+        $indexRes->assertSee("{$originalNumber}_R2");
     }
 
     public function test_estimation_user_can_view_approve_button_and_approve_pending_quotation(): void
@@ -694,5 +702,131 @@ class QuotationTest extends TestCase
         $docResponse->assertOk();
         $docResponse->assertDontSee('TERMS AND CONDITIONS:');
         $docResponse->assertDontSee('Standard commercial terms apply.');
+    }
+
+    public function test_quotations_index_shows_all_quotations_for_a_lead_matching_kpi_count(): void
+    {
+        $estimator = User::where('role_name', 'estimation')->firstOrFail();
+        $branch = Branch::firstOrFail();
+        $estimator->update(['branch_id' => $branch->id, 'all_branches' => false]);
+
+        $lead = Lead::where('branch_id', $branch->id)->firstOrFail();
+
+        $q1 = Quotation::create([
+            'quote_number' => 'RM-QT-TEST-001',
+            'lead_id' => $lead->id,
+            'branch_id' => $branch->id,
+            'prepared_by_id' => $estimator->id,
+            'quote_date' => now()->toDateString(),
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'status' => 'sent',
+            'subtotal' => 100,
+            'vat_amount' => 5,
+            'grand_total' => 105,
+        ]);
+
+        $q2 = Quotation::create([
+            'quote_number' => 'RM-QT-TEST-002',
+            'lead_id' => $lead->id,
+            'branch_id' => $branch->id,
+            'prepared_by_id' => $estimator->id,
+            'quote_date' => now()->toDateString(),
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'status' => 'draft',
+            'subtotal' => 200,
+            'vat_amount' => 10,
+            'grand_total' => 210,
+        ]);
+
+        $this->actingAs($estimator);
+
+        $response = $this->get(route('quotations.index'));
+        $response->assertOk();
+        $response->assertSee('RM-QT-TEST-001');
+        $response->assertSee('RM-QT-TEST-002');
+    }
+
+    public function test_project_engineer_receives_notification_when_estimation_user_approves_quotation(): void
+    {
+        $estimator = User::where('role_name', 'estimation')->firstOrFail();
+        $engineer = User::where('role_name', 'engineer')->firstOrFail();
+        $branch = Branch::firstOrFail();
+
+        $estimator->update(['branch_id' => $branch->id, 'all_branches' => false]);
+        $engineer->update(['branch_id' => $branch->id, 'all_branches' => false]);
+
+        $lead = Lead::create([
+            'lead_number' => Lead::nextLeadNumber(),
+            'branch_id' => $branch->id,
+            'company_name' => 'Assetbuilders',
+            'customer_name' => 'Assetbuilders',
+            'contact_person' => 'Muhsin',
+            'phone' => '8089359459',
+            'subject' => 'Interior',
+            'assigned_engineer_id' => $engineer->id,
+            'status' => 'new',
+            'created_by_id' => $estimator->id,
+        ]);
+
+        $quote = Quotation::create([
+            'quote_number' => Quotation::nextQuoteNumber(),
+            'lead_id' => $lead->id,
+            'branch_id' => $branch->id,
+            'prepared_by_id' => $engineer->id,
+            'quote_date' => now()->toDateString(),
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'status' => 'pending',
+            'subtotal' => 129,
+            'vat_amount' => 6.45,
+            'grand_total' => 135.45,
+        ]);
+
+        $this->actingAs($estimator);
+
+        $this->post(route('quotations.approve', $quote))->assertRedirect();
+
+        $this->assertEquals('approved', $quote->fresh()->status);
+
+        $notification = $engineer->fresh()->notifications()->latest()->first();
+        $this->assertNotNull($notification);
+        $this->assertEquals(\App\Notifications\QuotationApprovedNotification::class, $notification->type);
+        $this->assertEquals("Quotation Approved: {$quote->quote_number}", $notification->data['title']);
+        $this->assertStringContainsString($estimator->name, $notification->data['text']);
+    }
+
+    public function test_sent_quotation_dated_today_is_counted_in_kpi_cards(): void
+    {
+        $estimator = User::where('role_name', 'estimation')->firstOrFail();
+        $branch = Branch::firstOrFail();
+        $estimator->update(['branch_id' => $branch->id, 'all_branches' => false]);
+
+        $lead = Lead::where('branch_id', $branch->id)->firstOrFail();
+
+        Quotation::create([
+            'quote_number' => Quotation::nextQuoteNumber(),
+            'lead_id' => $lead->id,
+            'branch_id' => $branch->id,
+            'prepared_by_id' => $estimator->id,
+            'quote_date' => now()->toDateString(),
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'status' => 'sent',
+            'subtotal' => 500,
+            'vat_amount' => 25,
+            'grand_total' => 525,
+        ]);
+
+        $kpis = collect(app(\App\Services\DashboardService::class)->getQuotationKpis($estimator, 'all'))
+            ->keyBy('key');
+
+        $expectedSent = Quotation::accessibleBy($estimator)->where('status', 'sent')->count();
+        $expectedTotal = Quotation::accessibleBy($estimator)->count();
+
+        $this->assertEquals((string) $expectedSent, (string) $kpis['sent_quotes']['value']);
+        $this->assertEquals((string) $expectedTotal, (string) $kpis['quotes']['value']);
+        $this->assertGreaterThanOrEqual(1, (int) $kpis['sent_quotes']['value']);
     }
 }

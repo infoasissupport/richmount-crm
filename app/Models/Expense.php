@@ -24,6 +24,7 @@ class Expense extends Model
         'bill_number',
         'date',
         'type',
+        'company_card_id',
         'subtotal',
         'vat_rate',
         'vat_amount',
@@ -99,6 +100,11 @@ class Expense extends Model
     public function vehicle(): BelongsTo
     {
         return $this->belongsTo(Vehicle::class);
+    }
+
+    public function companyCard(): BelongsTo
+    {
+        return $this->belongsTo(CompanyCard::class);
     }
 
     public function approvedBy(): BelongsTo

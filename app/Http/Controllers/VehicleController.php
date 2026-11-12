@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\VehicleRequest;
 use App\Models\Vehicle;
 use App\Services\AuditService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -23,7 +24,7 @@ class VehicleController extends Controller
         return view('vehicles.index', compact('vehicles'));
     }
 
-    public function store(VehicleRequest $request): RedirectResponse
+    public function store(VehicleRequest $request): RedirectResponse|JsonResponse
     {
         $validated = $request->validated();
         $validated['name'] = ($validated['name'] ?? '') ?: $validated['registration_number'];

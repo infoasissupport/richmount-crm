@@ -1,4 +1,8 @@
-<div class="modal-wrap expense-modal" id="expenseModal" data-auto-open="{{ $autoOpen ? '1' : '0' }}" data-selected-project-id="{{ $selectedProjectId ?? '' }}" data-vehicle-store-url="{{ route('vehicles.store') }}" aria-hidden="true" onclick="if(event.target === this) closeExpenseModal()">
+@php
+    $companyCards = $companyCards ?? \App\Models\CompanyCard::active()->orderBy('card_name')->get();
+@endphp
+
+<div class="modal-wrap expense-modal" id="expenseModal" data-auto-open="{{ $autoOpen ? '1' : '0' }}" data-selected-project-id="{{ $selectedProjectId ?? '' }}" data-vehicle-store-url="{{ route('vehicles.store') }}" data-card-store-url="{{ route('company-cards.store') }}" aria-hidden="true" onclick="if(event.target === this) closeExpenseModal()">
     <div class="modal modal-lg project-expense-form" role="dialog" aria-modal="true" aria-labelledby="expenseModalTitle">
         <div class="modal-head">
             <div>
@@ -39,11 +43,11 @@
                             @foreach($vehicles as $vehicle)
                                 <option value="{{ $vehicle->id }}">{{ $vehicle->registration_number }}</option>
                             @endforeach
-                            @can('expenses.approve')
+                            @if(auth()->user()->can('expenses.create') || auth()->user()->can('expenses.approve'))
                                 <option value="__add_new_vehicle__">+ Add New Vehicle...</option>
-                            @endcan
+                            @endif
                         </select>
-                        @can('expenses.approve')
+                        @if(auth()->user()->can('expenses.create') || auth()->user()->can('expenses.approve'))
                             <div class="vehicle-quick-add" id="expNewVehicleField" hidden>
                                 <label class="label" for="expNewVehicleRegistration">New Vehicle Number</label>
                                 <div class="field-inline">
@@ -55,9 +59,6 @@
                                 </div>
                                 <span class="hint" id="expNewVehicleMessage" aria-live="polite"></span>
                             </div>
-                        @endcan
-                        @if(!auth()->user()->can('expenses.approve') && $vehicles->isEmpty())
-                            <span class="hint">No active vehicles are configured. Ask an Accountant to add one.</span>
                         @endif
                     </div>
 
@@ -87,6 +88,33 @@
                                 <span><svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-credit-card"/></svg>Company Card</span>
                             </label>
                         </div>
+                    </div>
+
+                    <div class="field span-2" id="expCompanyCardField" hidden>
+                        <label class="label" for="expCompanyCard">Select Company Card</label>
+                        <select class="select" id="expCompanyCard" name="company_card_id" disabled>
+                            <option value="">Select saved card</option>
+                            @foreach($companyCards as $card)
+                                <option value="{{ $card->id }}">{{ $card->displayLabel() }}</option>
+                            @endforeach
+                            @if(auth()->user()->can('expenses.create') || auth()->user()->can('expenses.approve'))
+                                <option value="__add_new_card__">+ Add New Card...</option>
+                            @endif
+                        </select>
+                        @if(auth()->user()->can('expenses.create') || auth()->user()->can('expenses.approve'))
+                            <div class="vehicle-quick-add" id="expNewCardField" hidden>
+                                <label class="label" for="expNewCardName">New Company Card</label>
+                                <div class="field-inline">
+                                    <input class="input" id="expNewCardName" type="text" maxlength="100" placeholder="Card name (e.g. Emirates NBD Corporate)" onkeydown="if(event.key === 'Enter'){event.preventDefault(); addCompanyCardFromExpense();}">
+                                    <input class="input" id="expNewCardLastFour" type="text" maxlength="4" inputmode="numeric" placeholder="Last 4 (optional)" style="max-width: 140px;" onkeydown="if(event.key === 'Enter'){event.preventDefault(); addCompanyCardFromExpense();}">
+                                    <button class="btn btn-soft btn-sm" id="addExpenseCardButton" type="button" onclick="addCompanyCardFromExpense()">
+                                        <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg>
+                                        Add
+                                    </button>
+                                </div>
+                                <span class="hint" id="expNewCardMessage" aria-live="polite"></span>
+                            </div>
+                        @endif
                     </div>
 
                     <div class="field span-2">
@@ -160,6 +188,7 @@
         expenseModal.setAttribute('aria-hidden', 'true');
     }
 
+    const expenseModalEl = document.getElementById('expenseModal');
     const expenseCategorySelect = document.getElementById('expCat');
     const vehicleField = document.getElementById('expVehicleField');
     const vehicleSelect = document.getElementById('expVehicle');
@@ -167,6 +196,14 @@
     const newVehicleInput = document.getElementById('expNewVehicleRegistration');
     const newVehicleMessage = document.getElementById('expNewVehicleMessage');
     const addExpenseVehicleButton = document.getElementById('addExpenseVehicleButton');
+
+    const companyCardField = document.getElementById('expCompanyCardField');
+    const companyCardSelect = document.getElementById('expCompanyCard');
+    const newCardField = document.getElementById('expNewCardField');
+    const newCardNameInput = document.getElementById('expNewCardName');
+    const newCardLastFourInput = document.getElementById('expNewCardLastFour');
+    const newCardMessage = document.getElementById('expNewCardMessage');
+    const addExpenseCardButton = document.getElementById('addExpenseCardButton');
 
     function syncFuelVehicleField() {
         const requiresVehicle = expenseCategorySelect.value === 'fuel';
@@ -177,6 +214,19 @@
         if (!requiresVehicle) {
             vehicleSelect.value = '';
             if (newVehicleField) newVehicleField.hidden = true;
+        }
+    }
+
+    function syncCompanyCardField() {
+        const isCard = document.querySelector('#expenseModal input[name="type"]:checked')?.value === 'card';
+        if (!companyCardField || !companyCardSelect) return;
+
+        companyCardField.hidden = !isCard;
+        companyCardSelect.disabled = !isCard;
+
+        if (!isCard) {
+            companyCardSelect.value = '';
+            if (newCardField) newCardField.hidden = true;
         }
     }
 
@@ -191,8 +241,26 @@
         }
     });
 
+    if (companyCardSelect) {
+        companyCardSelect.addEventListener('change', function () {
+            if (companyCardSelect.value === '__add_new_card__') {
+                companyCardSelect.value = '';
+                newCardField.hidden = false;
+                newCardMessage.textContent = '';
+                newCardNameInput.focus();
+            } else if (newCardField) {
+                newCardField.hidden = true;
+            }
+        });
+    }
+
+    document.querySelectorAll('#expenseModal input[name="type"]').forEach(function (radio) {
+        radio.addEventListener('change', syncCompanyCardField);
+    });
+
     expenseCategorySelect.addEventListener('change', syncFuelVehicleField);
     syncFuelVehicleField();
+    syncCompanyCardField();
 
     async function addVehicleFromExpense() {
         const registrationNumber = newVehicleInput.value.trim();
@@ -206,7 +274,7 @@
         newVehicleMessage.textContent = '';
 
         try {
-            const response = await fetch(expenseModal.dataset.vehicleStoreUrl, {
+            const response = await fetch(expenseModalEl.dataset.vehicleStoreUrl, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
@@ -235,6 +303,61 @@
             newVehicleMessage.textContent = 'Could not add this vehicle. Please try again.';
         } finally {
             addExpenseVehicleButton.disabled = false;
+        }
+    }
+
+    async function addCompanyCardFromExpense() {
+        const cardName = newCardNameInput.value.trim();
+        const lastFour = newCardLastFourInput.value.trim();
+        if (!cardName) {
+            newCardMessage.textContent = 'Enter a card name.';
+            newCardNameInput.focus();
+            return;
+        }
+        if (lastFour && !/^\d{4}$/.test(lastFour)) {
+            newCardMessage.textContent = 'Last 4 digits must be 4 numbers.';
+            newCardLastFourInput.focus();
+            return;
+        }
+
+        addExpenseCardButton.disabled = true;
+        newCardMessage.textContent = '';
+
+        try {
+            const response = await fetch(expenseModalEl.dataset.cardStoreUrl, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({
+                    card_name: cardName,
+                    last_four: lastFour || null,
+                }),
+            });
+            const result = await response.json();
+
+            if (!response.ok) {
+                const errorMessage = Object.values(result.errors ?? {}).flat()[0];
+                newCardMessage.textContent = errorMessage ?? result.message ?? 'Could not add this card.';
+                return;
+            }
+
+            const option = document.createElement('option');
+            option.value = result.card.id;
+            option.textContent = result.card.label;
+            const addNewOption = companyCardSelect.querySelector('option[value="__add_new_card__"]');
+            companyCardSelect.add(option, addNewOption ?? null);
+            companyCardSelect.value = String(result.card.id);
+            newCardField.hidden = true;
+            newCardNameInput.value = '';
+            newCardLastFourInput.value = '';
+        } catch (error) {
+            newCardMessage.textContent = 'Could not add this card. Please try again.';
+        } finally {
+            addExpenseCardButton.disabled = false;
         }
     }
 

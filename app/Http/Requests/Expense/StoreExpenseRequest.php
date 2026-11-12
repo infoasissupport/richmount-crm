@@ -28,6 +28,7 @@ class StoreExpenseRequest extends FormRequest
             'bill_number' => ['nullable', 'string', 'max:100'],
             'date' => ['nullable', 'date'],
             'type' => ['required', 'in:cash,card'],
+            'company_card_id' => ['exclude_unless:type,card', 'nullable', Rule::exists('company_cards', 'id')->where('is_active', true)],
             'subtotal' => ['required', 'numeric', 'min:0.01'],
             'vat_rate' => ['nullable', 'numeric', 'in:0.05,0'],
             'receipt' => ['nullable', 'file', 'max:20480'],

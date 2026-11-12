@@ -747,4 +747,53 @@ class QuotationTest extends TestCase
         $response->assertSee('RM-QT-TEST-001');
         $response->assertSee('RM-QT-TEST-002');
     }
+
+    public function test_project_engineer_receives_notification_when_estimation_user_approves_quotation(): void
+    {
+        $estimator = User::where('role_name', 'estimation')->firstOrFail();
+        $engineer = User::where('role_name', 'engineer')->firstOrFail();
+        $branch = Branch::firstOrFail();
+
+        $estimator->update(['branch_id' => $branch->id, 'all_branches' => false]);
+        $engineer->update(['branch_id' => $branch->id, 'all_branches' => false]);
+
+        $lead = Lead::create([
+            'lead_number' => Lead::nextLeadNumber(),
+            'branch_id' => $branch->id,
+            'company_name' => 'Assetbuilders',
+            'customer_name' => 'Assetbuilders',
+            'contact_person' => 'Muhsin',
+            'phone' => '8089359459',
+            'subject' => 'Interior',
+            'assigned_engineer_id' => $engineer->id,
+            'status' => 'new',
+            'created_by_id' => $estimator->id,
+        ]);
+
+        $quote = Quotation::create([
+            'quote_number' => Quotation::nextQuoteNumber(),
+            'lead_id' => $lead->id,
+            'branch_id' => $branch->id,
+            'prepared_by_id' => $engineer->id,
+            'quote_date' => now()->toDateString(),
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'status' => 'pending',
+            'subtotal' => 129,
+            'vat_amount' => 6.45,
+            'grand_total' => 135.45,
+        ]);
+
+        $this->actingAs($estimator);
+
+        $this->post(route('quotations.approve', $quote))->assertRedirect();
+
+        $this->assertEquals('approved', $quote->fresh()->status);
+
+        $notification = $engineer->fresh()->notifications()->latest()->first();
+        $this->assertNotNull($notification);
+        $this->assertEquals(\App\Notifications\QuotationApprovedNotification::class, $notification->type);
+        $this->assertEquals("Quotation Approved: {$quote->quote_number}", $notification->data['title']);
+        $this->assertStringContainsString($estimator->name, $notification->data['text']);
+    }
 }

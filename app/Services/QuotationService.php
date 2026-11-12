@@ -7,6 +7,7 @@ use App\Models\Quotation;
 use App\Models\QuotationAttachment;
 use App\Models\QuotationHistory;
 use App\Models\User;
+use App\Notifications\QuotationApprovedNotification;
 use App\Notifications\QuotationSubmittedNotification;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -377,6 +378,19 @@ class QuotationService
         ]);
 
         AuditService::log('approved', $quotation, "Approved quotation {$quotation->quote_number}");
+
+        $quotation->loadMissing(['lead.assignedEngineer', 'preparedBy']);
+        $recipients = collect([
+            $quotation->lead?->assignedEngineer,
+            $quotation->preparedBy,
+        ])
+            ->filter()
+            ->unique('id')
+            ->reject(fn (User $u) => $u->id === $approver->id);
+
+        foreach ($recipients as $recipient) {
+            $recipient->notify(new QuotationApprovedNotification($quotation, $approver));
+        }
 
         return $quotation;
     }

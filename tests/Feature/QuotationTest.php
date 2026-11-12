@@ -796,4 +796,37 @@ class QuotationTest extends TestCase
         $this->assertEquals("Quotation Approved: {$quote->quote_number}", $notification->data['title']);
         $this->assertStringContainsString($estimator->name, $notification->data['text']);
     }
+
+    public function test_sent_quotation_dated_today_is_counted_in_kpi_cards(): void
+    {
+        $estimator = User::where('role_name', 'estimation')->firstOrFail();
+        $branch = Branch::firstOrFail();
+        $estimator->update(['branch_id' => $branch->id, 'all_branches' => false]);
+
+        $lead = Lead::where('branch_id', $branch->id)->firstOrFail();
+
+        Quotation::create([
+            'quote_number' => Quotation::nextQuoteNumber(),
+            'lead_id' => $lead->id,
+            'branch_id' => $branch->id,
+            'prepared_by_id' => $estimator->id,
+            'quote_date' => now()->toDateString(),
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'status' => 'sent',
+            'subtotal' => 500,
+            'vat_amount' => 25,
+            'grand_total' => 525,
+        ]);
+
+        $kpis = collect(app(\App\Services\DashboardService::class)->getQuotationKpis($estimator, 'all'))
+            ->keyBy('key');
+
+        $expectedSent = Quotation::accessibleBy($estimator)->where('status', 'sent')->count();
+        $expectedTotal = Quotation::accessibleBy($estimator)->count();
+
+        $this->assertEquals((string) $expectedSent, (string) $kpis['sent_quotes']['value']);
+        $this->assertEquals((string) $expectedTotal, (string) $kpis['quotes']['value']);
+        $this->assertGreaterThanOrEqual(1, (int) $kpis['sent_quotes']['value']);
+    }
 }

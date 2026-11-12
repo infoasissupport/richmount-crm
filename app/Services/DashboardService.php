@@ -150,7 +150,7 @@ class DashboardService
                     fn ($a, $b) => (clone $leadQuery)->whereBetween('created_at', [$a, $b])->count(),
                     false, route('leads.index')),
                 $kpi('quotes', 'Quotations', 'file-text',
-                    fn ($a, $b) => (clone $quoteQuery)->whereBetween('quote_date', [$a->toDateString(), $b->toDateString()])->count(),
+                    fn ($a, $b) => (clone $quoteQuery)->whereBetween('quote_date', $this->dateBounds($a, $b))->count(),
                     false, route('quotations.index')),
                 $kpi('active_projects', 'Active Projects', 'briefcase',
                     fn ($a, $b) => (clone $projectQuery)
@@ -160,10 +160,10 @@ class DashboardService
                         ->count(),
                     false, route('projects.index')),
                 $kpi('expenses', 'Total Expenses', 'wallet',
-                    fn ($a, $b) => (float) (clone $expenseQuery)->where('status', '!=', 'rejected')->whereBetween('date', [$a->toDateString(), $b->toDateString()])->sum('grand_total'),
+                    fn ($a, $b) => (float) (clone $expenseQuery)->where('status', '!=', 'rejected')->whereBetween('date', $this->dateBounds($a, $b))->sum('grand_total'),
                     true, route('expenses.index')),
                 $kpi('invoiced', 'Total Invoiced', 'invoice',
-                    fn ($a, $b) => (float) Invoice::accessibleBy($user)->whereNotIn('status', ['draft', 'void'])->whereBetween('invoice_date', [$a->toDateString(), $b->toDateString()])->sum('grand_total'),
+                    fn ($a, $b) => (float) Invoice::accessibleBy($user)->whereNotIn('status', ['draft', 'void'])->whereBetween('invoice_date', $this->dateBounds($a, $b))->sum('grand_total'),
                     true, route('finance.index')),
             ];
         }
@@ -321,7 +321,7 @@ class DashboardService
 
         return [
             $this->periodKpi($period, 'quotes', 'Quotations', 'file-text',
-                fn ($a, $b) => (clone $quoteQuery)->whereBetween('quote_date', [$a->toDateString(), $b->toDateString()])->count(),
+                fn ($a, $b) => (clone $quoteQuery)->whereBetween('quote_date', $this->dateBounds($a, $b))->count(),
                 false, route('quotations.index')),
             ...$this->quotationStageKpis($user, $period),
         ];
@@ -333,7 +333,7 @@ class DashboardService
     protected function quotationStageKpis(User $user, string $period): array
     {
         $quoteQuery = Quotation::accessibleBy($user);
-        $dates = fn ($a, $b) => [$a->toDateString(), $b->toDateString()];
+        $dates = fn ($a, $b) => $this->dateBounds($a, $b);
 
         return [
             $this->periodKpi($period, 'draft_quotes', 'Draft Quotations', 'file-text',
@@ -346,6 +346,19 @@ class DashboardService
             $this->periodKpi($period, 'awarded', 'Awarded Quotes', 'award',
                 fn ($a, $b) => (clone $quoteQuery)->where('status', 'awarded')->whereBetween('award_date', $dates($a, $b))->count(),
                 false, route('quotations.index', ['tab' => 'awarded'])),
+        ];
+    }
+
+    /**
+     * Date-range bounds that include both date-only strings and midnight/intra-day datetimes.
+     *
+     * @return array{0: string, 1: string}
+     */
+    protected function dateBounds(Carbon $from, Carbon $to): array
+    {
+        return [
+            $from->copy()->startOfDay()->toDateTimeString(),
+            $to->copy()->endOfDay()->toDateTimeString(),
         ];
     }
 

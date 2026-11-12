@@ -12,7 +12,9 @@ class VehicleRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()?->can('expenses.approve') ?? false;
+        $user = $this->user();
+
+        return $user !== null && ($user->can('expenses.create') || $user->can('expenses.approve'));
     }
 
     public function rules(): array

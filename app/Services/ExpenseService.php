@@ -35,6 +35,7 @@ class ExpenseService
                 'bill_number' => $data['bill_number'] ?? null,
                 'date' => $data['date'] ?? now()->toDateString(),
                 'type' => $data['type'] ?? 'cash',
+                'company_card_id' => ($data['type'] ?? 'cash') === 'card' ? ($data['company_card_id'] ?? null) : null,
                 'subtotal' => $subtotal,
                 'vat_rate' => $vatRate,
                 'vat_amount' => $vatAmount,

@@ -102,6 +102,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/expenses', [\App\Http\Controllers\ExpenseController::class, 'index'])->name('expenses.index');
     Route::post('/expenses', [\App\Http\Controllers\ExpenseController::class, 'store'])->name('expenses.store');
     Route::resource('vehicles', \App\Http\Controllers\VehicleController::class)->only(['index', 'store', 'update']);
+    Route::post('/company-cards', [\App\Http\Controllers\CompanyCardController::class, 'store'])->name('company-cards.store');
     Route::get('/expenses/ledger/{user}', [\App\Http\Controllers\ExpenseController::class, 'ledger'])->name('expenses.ledger');
     Route::post('/transfers', [\App\Http\Controllers\TransferController::class, 'store'])->name('transfers.store');
     Route::put('/transfers/{transfer}', [\App\Http\Controllers\TransferController::class, 'update'])->name('transfers.update');

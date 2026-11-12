@@ -497,26 +497,26 @@ class QuotationService
             $oldNumber = $quotation->quote_number;
 
             if ($wasSent) {
-                // Keep the sent quotation intact in history and create a new revision (R1-..., R2-...)
+                // Keep the sent quotation intact in history and create a new revision (..._R1, ..._R2)
                 $rev = 1;
-                if (preg_match('/^R(\d+)-(.*)$/i', $quotation->quote_number, $matches)) {
-                    $rev = ((int) $matches[1]) + 1;
-                    $base = $matches[2];
-                } elseif (preg_match('/^(.*?)[_-]R(\d+)$/i', $quotation->quote_number, $matches)) {
+                if (preg_match('/^(.*?)[_-]R(\d+)$/i', $quotation->quote_number, $matches)) {
                     $rev = ((int) $matches[2]) + 1;
                     $base = $matches[1];
+                } elseif (preg_match('/^R(\d+)-(.*)$/i', $quotation->quote_number, $matches)) {
+                    $rev = ((int) $matches[1]) + 1;
+                    $base = $matches[2];
                 } else {
                     $base = $quotation->quote_number;
                 }
 
-                while (Quotation::where('quote_number', "R{$rev}-{$base}")->exists()) {
+                while (Quotation::where('quote_number', "{$base}_R{$rev}")->exists()) {
                     $rev++;
                 }
 
                 $target = $quotation->replicate([
                     'quote_number', 'status', 'approved_by_id', 'rejection_reason', 'sent_at', 'award_date', 'created_at', 'updated_at',
                 ]);
-                $target->quote_number = "R{$rev}-{$base}";
+                $target->quote_number = "{$base}_R{$rev}";
                 $target->quote_date = now()->toDateString();
                 $target->status = 'draft';
                 $target->approved_by_id = null;

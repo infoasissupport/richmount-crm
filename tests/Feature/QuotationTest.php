@@ -509,12 +509,12 @@ class QuotationTest extends TestCase
             'status' => 'sent',
         ]);
 
-        // First edit after sending -> keeps original as 'sent' and creates R1 as 'draft'
+        // First edit after sending -> keeps original as 'sent' and creates _R1 as 'draft'
         $response = $this->post("/quotations/{$quote->id}/reopen", [
             'reason' => 'Revised pricing agreed after client meeting',
         ]);
 
-        $rev1 = Quotation::where('quote_number', "R1-{$originalNumber}")->firstOrFail();
+        $rev1 = Quotation::where('quote_number', "{$originalNumber}_R1")->firstOrFail();
         $response->assertRedirect("/quotations/builder?id={$rev1->id}");
         $this->assertEquals('draft', $rev1->status);
         $this->assertEquals('sent', $quote->fresh()->status);
@@ -523,12 +523,12 @@ class QuotationTest extends TestCase
         // Submit, approve, send R1
         $rev1->update(['status' => 'sent']);
 
-        // Second edit after sending -> keeps R1 as 'sent' and creates R2 as 'draft'
+        // Second edit after sending -> keeps _R1 as 'sent' and creates _R2 as 'draft'
         $response2 = $this->post("/quotations/{$rev1->id}/reopen", [
             'reason' => 'Second revision requested by client',
         ]);
 
-        $rev2 = Quotation::where('quote_number', "R2-{$originalNumber}")->firstOrFail();
+        $rev2 = Quotation::where('quote_number', "{$originalNumber}_R2")->firstOrFail();
         $response2->assertRedirect("/quotations/builder?id={$rev2->id}");
         $this->assertEquals('draft', $rev2->status);
         $this->assertEquals('sent', $rev1->fresh()->status);
@@ -537,8 +537,8 @@ class QuotationTest extends TestCase
         $indexRes = $this->get(route('quotations.index'));
         $indexRes->assertOk();
         $indexRes->assertSee($originalNumber);
-        $indexRes->assertSee("R1-{$originalNumber}");
-        $indexRes->assertSee("R2-{$originalNumber}");
+        $indexRes->assertSee("{$originalNumber}_R1");
+        $indexRes->assertSee("{$originalNumber}_R2");
     }
 
     public function test_estimation_user_can_view_approve_button_and_approve_pending_quotation(): void

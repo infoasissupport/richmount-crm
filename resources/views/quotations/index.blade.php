@@ -117,7 +117,10 @@
                                 'output' => $q->output_type ?: 'tax',
                             ];
                         @endphp
-                        <tr>
+                        <tr class="quote-row clickable"
+                            data-edit-quote="{{ route('quotations.builder', ['id' => $q->id, 'embed' => 1]) }}"
+                            data-quote-number="{{ $q->quote_number }}"
+                            data-quote-href="{{ route('quotations.builder', ['id' => $q->id]) }}">
                             <td class="dt-no" data-label="Sl No">{{ $quotations->firstItem() + $loop->index }}</td>
                             <td data-label="Quote No">{{ $q->quote_number }}</td>
                             <td class="strong" data-label="Client" title="{{ $client }}">
@@ -281,7 +284,7 @@
     function openQuoteEdit(link) {
         quoteEditLoads = 0;
         document.getElementById('quoteEditTitle').textContent = 'Edit Quotation · ' + link.dataset.quoteNumber;
-        document.getElementById('quoteEditFull').href = link.href;
+        document.getElementById('quoteEditFull').href = link.dataset.quoteHref || link.href;
         document.getElementById('quoteEditFrame').src = link.dataset.editQuote;
         var m = document.getElementById('quoteEditModal');
         m.style.display = 'flex';
@@ -298,11 +301,34 @@
         if (this.src && this.src !== 'about:blank' && !this.src.endsWith('about:blank')) quoteEditLoads++;
     });
     document.addEventListener('click', function (e) {
-        var link = e.target.closest('[data-edit-quote]');
-        // Ctrl / middle click keeps opening the full builder page in a new tab
-        if (!link || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
-        e.preventDefault();
-        openQuoteEdit(link);
+        // Direct click on the edit button in the action column
+        var editBtn = e.target.closest('.act.edit[data-edit-quote]');
+        if (editBtn) {
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+            e.preventDefault();
+            openQuoteEdit(editBtn);
+            return;
+        }
+
+        // Ignore clicks on other action elements (View, More menu button, menu items, or forms)
+        if (e.target.closest('.act.view, [data-row-menu], .popover, .row-menu, form')) {
+            return;
+        }
+
+        // Clicking anywhere on table text/cells in a quotation row
+        var row = e.target.closest('tr[data-edit-quote]');
+        if (row && typeof openQuoteEdit === 'function') {
+            // Ignore text selection
+            var selection = window.getSelection ? window.getSelection().toString() : '';
+            if (selection && selection.length > 0) return;
+
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+
+            e.preventDefault();
+            if (typeof closeRowMenu === 'function') closeRowMenu();
+            openQuoteEdit(row);
+            return;
+        }
     });
     document.addEventListener('keydown', function (e) {
         var m = document.getElementById('quoteEditModal');

@@ -89,24 +89,55 @@
     document.querySelector('#leadDrawer [data-drawer-close]').addEventListener('click', closeLeadDrawer);
 
     document.addEventListener('click', function (e) {
-        const ed = e.target.closest('[data-edit-lead]');
-        if (ed) {
+        // Direct edit buttons (.act.edit or menu edit item)
+        const edBtn = e.target.closest('button[data-edit-lead], .pop-item[data-edit-lead]');
+        if (edBtn) {
             closeRowMenu();
-            openEditLeadModal(JSON.parse(ed.dataset.editLead));
+            openEditLeadModal(JSON.parse(edBtn.dataset.editLead));
             return;
         }
-        const qv = e.target.closest('[data-quick-view]');
-        if (qv) {
-            closeRowMenu();
-            openLeadDrawer(JSON.parse(qv.dataset.quickView));
+
+        // Action cell buttons, menus, and drawer triggers
+        const inActions = e.target.closest('.rl-act, .row-actions, [data-row-menu], .row-menu');
+        if (inActions) {
+            const qv = e.target.closest('[data-quick-view]');
+            if (qv) {
+                closeRowMenu();
+                openLeadDrawer(JSON.parse(qv.dataset.quickView));
+                return;
+            }
+            const btn = e.target.closest('[data-row-menu]');
+            if (btn) {
+                const same = openRowMenu && openRowMenu.btn === btn;
+                closeRowMenu();
+                if (!same) openRowMenuFor(btn);
+            } else if (!e.target.closest('.row-menu')) {
+                closeRowMenu();
+            }
             return;
         }
-        const btn = e.target.closest('[data-row-menu]');
-        if (btn) {
-            const same = openRowMenu && openRowMenu.btn === btn;
+
+        // Clicking on any table text/cell in a lead row
+        const leadRow = e.target.closest('tr[data-edit-lead]');
+        if (leadRow && typeof openEditLeadModal === 'function') {
+            // Ignore if user is selecting/highlighting text
+            const selection = window.getSelection ? window.getSelection().toString() : '';
+            if (selection && selection.length > 0) {
+                return;
+            }
+
+            // Allow Ctrl / Cmd / Shift or middle click on links to open in a new tab
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) {
+                return;
+            }
+
+            e.preventDefault();
             closeRowMenu();
-            if (!same) openRowMenuFor(btn);
-        } else if (!e.target.closest('.row-menu')) {
+            openEditLeadModal(JSON.parse(leadRow.dataset.editLead));
+            return;
+        }
+
+        if (!e.target.closest('.row-menu')) {
             closeRowMenu();
         }
     });

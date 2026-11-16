@@ -760,6 +760,10 @@ a.pop-item { text-decoration: none; }
 .quick .ic { width: 20px; height: 20px; color: var(--primary); }
 .quick { gap: 8px; }
 
+#recentTable tbody tr[data-edit-lead],
+#quotesList tbody tr[data-edit-quote] { cursor: pointer; }
+#recentTable tbody tr[data-edit-lead] .rl-act,
+#quotesList tbody tr[data-edit-quote] td[data-label="Action"] { cursor: default; }
 #recentTable .rl-no { color: var(--muted); width: 48px; }
 /* avatar + name, two-line text, date with icon */
 .avatar.sm { width: 32px; height: 32px; font-size: 12px; }

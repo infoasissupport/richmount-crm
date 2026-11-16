@@ -206,7 +206,7 @@ class LeadAssignmentNotificationTest extends TestCase
         $this->assertEquals($quotation->id, $estimatorNotif->data['quotation_id']);
         $this->assertStringContainsString($quotation->quote_number, $estimatorNotif->data['title']);
         $this->assertStringContainsString($engineer->name, $estimatorNotif->data['text']);
-        $this->assertEquals(route('quotations.builder', ['id' => $quotation->id]), $estimatorNotif->data['link']);
+        $this->assertEquals(route('quotations.builder', ['id' => $quotation->id], false), $estimatorNotif->data['link']);
 
         // 2. Super Admin should have received notification
         $this->assertEquals(1, $superAdmin->unreadNotifications()->count());
@@ -220,5 +220,41 @@ class LeadAssignmentNotificationTest extends TestCase
         $clickResponse = $this->post("/notifications/{$estimatorNotif->id}/read");
         $clickResponse->assertRedirect(route('quotations.builder', ['id' => $quotation->id]));
         $this->assertEquals(0, $estimator->fresh()->unreadNotifications()->count());
+    }
+
+    public function test_legacy_absolute_notification_link_is_sanitized_to_relative_path(): void
+    {
+        $user = User::where('role_name', 'super_admin')->first();
+        $this->actingAs($user);
+
+        // Simulate an existing database notification created with 127.0.0.1:8000
+        $notificationId = (string) \Illuminate\Support\Str::uuid();
+        \Illuminate\Support\Facades\DB::table('notifications')->insert([
+            'id' => $notificationId,
+            'type' => 'App\Notifications\QuotationSubmittedNotification',
+            'notifiable_type' => User::class,
+            'notifiable_id' => $user->id,
+            'data' => json_encode([
+                'type' => 'quote',
+                'title' => 'Quotation Submitted: RM-QT-2026-0006',
+                'text' => 'Quotation RM-QT-2026-0006 submitted for approval',
+                'link' => 'http://127.0.0.1:8000/quotations/builder?id=6',
+            ]),
+            'read_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // GET /notifications should sanitize link to relative path
+        $indexResponse = $this->getJson('/notifications');
+        $indexResponse->assertOk();
+        $indexResponse->assertJsonFragment([
+            'id' => $notificationId,
+            'link' => '/quotations/builder?id=6',
+        ]);
+
+        // Clicking /notifications/{id}/read should redirect to relative path on current host
+        $readResponse = $this->post("/notifications/{$notificationId}/read");
+        $readResponse->assertRedirect('/quotations/builder?id=6');
     }
 }

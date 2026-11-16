@@ -10,6 +10,43 @@ use Illuminate\View\View;
 class NotificationController extends Controller
 {
     /**
+     * Sanitize a notification link to ensure it is always a safe relative path
+     * and never redirects to a mismatched host or local development URL (e.g. 127.0.0.1:8000).
+     */
+    public static function sanitizeNotificationLink(?string $link): string
+    {
+        if (! $link || $link === '#') {
+            return '#';
+        }
+
+        $parts = parse_url($link);
+        if ($parts === false) {
+            return '#';
+        }
+
+        $path = $parts['path'] ?? '';
+        if ($path === '' && empty($parts['query']) && empty($parts['fragment'])) {
+            return '#';
+        }
+
+        if ($path === '') {
+            $path = '/';
+        } elseif (! str_starts_with($path, '/')) {
+            $path = '/' . $path;
+        }
+
+        if (! empty($parts['query'])) {
+            $path .= '?' . $parts['query'];
+        }
+
+        if (! empty($parts['fragment'])) {
+            $path .= '#' . $parts['fragment'];
+        }
+
+        return $path;
+    }
+
+    /**
      * Get list of notifications for authenticated user.
      */
     public function index(Request $request): JsonResponse
@@ -21,7 +58,7 @@ class NotificationController extends Controller
                 'type' => $n->data['type'] ?? 'bell',
                 'title' => $n->data['title'] ?? 'Notification',
                 'text' => $n->data['text'] ?? '',
-                'link' => $n->data['link'] ?? '#',
+                'link' => self::sanitizeNotificationLink($n->data['link'] ?? null),
                 'unread' => is_null($n->read_at),
                 'created_at' => $n->created_at->diffForHumans(),
             ];
@@ -49,8 +86,9 @@ class NotificationController extends Controller
             return response()->json(['success' => true]);
         }
 
-        $link = $notification?->data['link'] ?? null;
-        if ($link && $link !== '#') {
+        $rawLink = $notification?->data['link'] ?? null;
+        $link = self::sanitizeNotificationLink($rawLink);
+        if ($link !== '#') {
             return redirect($link);
         }
 

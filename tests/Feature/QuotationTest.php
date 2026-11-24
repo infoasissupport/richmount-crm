@@ -193,6 +193,48 @@ class QuotationTest extends TestCase
         $this->assertEquals(24150.00, (float) $freshQuote->grand_total);
     }
 
+    public function test_creating_quotation_auto_saves_via_json_store_and_returns_linkable_endpoints(): void
+    {
+        $engineer = User::where('role_name', 'engineer')->first();
+        $this->actingAs($engineer);
+
+        $lead = Lead::where('assigned_engineer_id', $engineer->id)->first();
+        $this->assertNotNull($lead);
+
+        $storeResponse = $this->postJson(route('quotations.store'), [
+            'lead_id' => $lead->id,
+            'quote_date' => now()->toDateString(),
+            'validity_days' => 30,
+            'output_type' => 'tax',
+            'items' => [
+                [
+                    'description' => 'Gypsum partition wall',
+                    'quantity' => 10,
+                    'unit' => 'm²',
+                    'unit_price' => 120,
+                ],
+            ],
+        ]);
+
+        $storeResponse->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure([
+                'success',
+                'quote_id',
+                'quote_number',
+                'autosave_url',
+                'update_url',
+                'saved_at',
+            ]);
+
+        $quoteId = $storeResponse->json('quote_id');
+        $this->assertDatabaseHas('quotations', [
+            'id' => $quoteId,
+            'lead_id' => $lead->id,
+            'status' => 'draft',
+        ]);
+    }
+
     public function test_grouped_descriptions_keep_one_shared_amount_when_saved_edited_and_printed(): void
     {
         $estimator = User::where('role_name', 'estimation')->first();

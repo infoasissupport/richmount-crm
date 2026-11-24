@@ -31,7 +31,7 @@
 
 <section class="page-head" id="pageHead">
     <div>
-        <h1>{{ $quote ? 'Quotation ' . $quote->quote_number : 'New Quotation' }}</h1>
+        <h1 id="qPageHeadTitle">{{ $quote ? 'Quotation ' . $quote->quote_number : 'New Quotation' }}</h1>
         <p class="sub" style="text-transform: capitalize;">{{ $lead->company_name }} &middot; {{ $lead->subject }}</p>
     </div>
     <div class="page-actions" style="display: flex; align-items: center; gap: 8px;">
@@ -122,7 +122,7 @@
         @else
             {{-- new quotation: Save Draft creates it; Submit for Approval creates it and submits it in one go --}}
             <span class="pill pill-{{ $lead->statusTone() }}" style="margin-right: 4px;"><i></i>Lead: {{ ucfirst($lead->status) }}</span>
-            <span class="pill pill-amber" style="margin-right: 4px;"><i></i>New draft</span>
+            <span class="pill pill-amber" id="qDraftStatusPill" style="margin-right: 4px;"><i></i>New draft</span>
             <button class="btn btn-ghost" type="button" onclick="submitQuoteForm()">
                 <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bookmark"/></svg>
                 Save Draft
@@ -272,7 +272,7 @@
                     </header>
 
                     <dl class="kv cols-2" id="qLeadKv">
-                        <dt>Quote Number</dt><dd><b>{{ $quote ? $quote->quote_number : 'Auto-generated on save' }}</b></dd>
+                        <dt>Quote Number</dt><dd><b id="qLeadQuoteNumber">{{ $quote ? $quote->quote_number : 'Auto-generated on save' }}</b></dd>
                         <dt>Lead Number</dt><dd>{{ $lead->lead_number }}</dd>
                         <dt>Lead Status</dt><dd><span class="pill pill-{{ $lead->statusTone() }}"><i></i>{{ ucfirst($lead->status) }}</span></dd>
                         <dt>Customer</dt><dd><strong>{{ $lead->company_name }}</strong></dd>
@@ -1901,14 +1901,32 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
         document.getElementById('sumGrandTotal').textContent = 'AED ' + grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    // 30-Second Auto-Save Endpoint Hook
-    @if($quote && in_array($quote->status, ['draft', 'rejected']))
-    setInterval(function() {
-        var form = document.getElementById('quoteMainForm');
-        var formData = new FormData(form);
-        formData.append('_method', 'POST');
+    // Auto-Save Endpoint Hook (supports both existing drafts and newly creating quotations)
+    @if(!$quote || in_array($quote->status, ['draft', 'rejected']))
+    var isAutosaving = false;
+    var currentQuoteId = {{ $quote ? $quote->id : 'null' }};
+    var currentAutosaveUrl = "{{ $quote ? route('quotations.autosave', $quote) : '' }}";
+    var currentUpdateUrl = "{{ $quote ? route('quotations.update', $quote) : '' }}";
+    var storeUrl = "{{ route('quotations.store') }}";
 
-        fetch("{{ route('quotations.autosave', $quote) }}", {
+    function performAutoSave() {
+        if (isAutosaving) return;
+        var form = document.getElementById('quoteMainForm');
+        if (!form) return;
+
+        var isNew = !currentQuoteId;
+        var url = isNew ? storeUrl : currentAutosaveUrl;
+        var formData = new FormData(form);
+
+        if (!isNew) {
+            formData.append('_method', 'POST');
+        }
+
+        isAutosaving = true;
+        var autoEl = document.getElementById('autosave');
+        if (autoEl) autoEl.textContent = 'Saving...';
+
+        fetch(url, {
             method: 'POST',
             body: formData,
             headers: {
@@ -1916,17 +1934,76 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
                 'Accept': 'application/json'
             }
         })
-        .then(function(res) { return res.json(); })
+        .then(function(res) {
+            if (!res.ok) throw new Error('Autosave response not OK (' + res.status + ')');
+            return res.json();
+        })
         .then(function(data) {
             if (data.success) {
-                var autoEl = document.getElementById('autosave');
-                if (autoEl) autoEl.textContent = 'Auto-saved at ' + data.saved_at;
+                if (isNew && (data.quote_id || data.quotation?.id)) {
+                    currentQuoteId = data.quote_id || data.quotation.id;
+                    var qNum = data.quote_number || data.quotation.quote_number;
+                    currentAutosaveUrl = data.autosave_url || ('/quotations/' + currentQuoteId + '/autosave');
+                    currentUpdateUrl = data.update_url || ('/quotations/' + currentQuoteId);
+
+                    form.action = currentUpdateUrl;
+                    if (!form.querySelector('input[name="_method"]')) {
+                        var methodInput = document.createElement('input');
+                        methodInput.type = 'hidden';
+                        methodInput.name = '_method';
+                        methodInput.value = 'PUT';
+                        form.appendChild(methodInput);
+                    }
+                    var leadInput = form.querySelector('input[name="lead_id"]');
+                    if (leadInput) leadInput.remove();
+
+                    if (window.history && window.history.replaceState) {
+                        window.history.replaceState(null, '', '{{ route('quotations.builder') }}?id=' + currentQuoteId);
+                    }
+
+                    if (qNum) {
+                        var qNumEl = document.getElementById('qLeadQuoteNumber');
+                        if (qNumEl) qNumEl.textContent = qNum;
+
+                        var pageTitle = document.getElementById('qPageHeadTitle');
+                        if (pageTitle) pageTitle.textContent = 'Quotation ' + qNum;
+
+                        document.title = 'Quotation ' + qNum + ' · Rich Mount ERP';
+                    }
+
+                    var pillEl = document.getElementById('qDraftStatusPill');
+                    if (pillEl) pillEl.innerHTML = '<i></i>Draft';
+                }
+
+                if (autoEl && (data.saved_at || data.auto_saved_at)) {
+                    autoEl.textContent = 'Auto-saved at ' + (data.saved_at || data.auto_saved_at);
+                }
             }
         })
         .catch(function(err) {
             console.warn('Auto-save skipped:', err);
+            if (autoEl) autoEl.textContent = '';
+        })
+        .finally(function() {
+            isAutosaving = false;
         });
-    }, 30000);
+    }
+
+    // Auto-save every 30 seconds
+    setInterval(performAutoSave, 30000);
+
+    // Also debounced auto-save 3 seconds after user changes line items or form fields
+    var autoSaveDebounceTimer = null;
+    function triggerDebouncedAutosave() {
+        if (autoSaveDebounceTimer) clearTimeout(autoSaveDebounceTimer);
+        autoSaveDebounceTimer = setTimeout(performAutoSave, 3000);
+    }
+
+    var quoteFormEl = document.getElementById('quoteMainForm');
+    if (quoteFormEl) {
+        quoteFormEl.addEventListener('input', triggerDebouncedAutosave);
+        quoteFormEl.addEventListener('change', triggerDebouncedAutosave);
+    }
     @endif
 
     // "Submit for Approval" asks first: checks the form, shows the live grand total and VAT, then saves + submits

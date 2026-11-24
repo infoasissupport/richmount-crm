@@ -183,6 +183,16 @@ class QuotationController extends Controller
                 'success' => true,
                 'message' => "Quotation {$quote->quote_number} created.",
                 'quotation' => $quote->load(['lineItems', 'lead']),
+                'quote_id' => $quote->id,
+                'quote_number' => $quote->quote_number,
+                'autosave_url' => route('quotations.autosave', $quote),
+                'update_url' => route('quotations.update', $quote),
+                'saved_at' => ($quote->auto_saved_at ?? now())->format('h:i:s A'),
+                'subtotal' => $quote->subtotal,
+                'discount' => $quote->discount_amount,
+                'taxable' => $quote->taxable_amount,
+                'vat' => $quote->vat_amount,
+                'grand_total' => $quote->grand_total,
             ], 201);
         }
 

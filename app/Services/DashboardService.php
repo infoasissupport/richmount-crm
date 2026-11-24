@@ -463,7 +463,7 @@ class DashboardService
 
         // Status filter
         if (!empty($filters['status'])) {
-            $query->where('status', strtolower($filters['status']));
+            $query->whereRaw('LOWER(status) = ?', [strtolower($filters['status'])]);
         }
 
         // Date Period filter

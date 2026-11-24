@@ -159,13 +159,18 @@ class Lead extends Model
      */
     public function statusTone(): string
     {
-        return match (strtolower($this->status)) {
+        return match (strtolower(trim((string) $this->status))) {
             'new' => 'green',
             'opened' => 'blue',
             'contacted' => 'blue',
-            'proposal' => 'amber',
+            'draft', 'proposal' => 'amber',
+            'pending', 'pending approval' => 'purple',
+            'approved' => 'green',
+            'rejected', 'revision req.', 'revision required' => 'red',
             'negotiation' => 'purple',
-            'won' => 'primary',
+            'sent', 'closed' => 'gray',
+            'won', 'awarded' => 'primary',
+            'lost' => 'red',
             default => 'gray',
         };
     }

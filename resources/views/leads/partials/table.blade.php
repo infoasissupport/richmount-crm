@@ -75,7 +75,7 @@
                         </span>
                     </td>
                     <td class="rl-status">
-                        <span class="pill pill-{{ $lead->statusTone() }}"><i></i>{{ ucfirst($lead->status) }}</span>
+                        <span class="pill pill-{{ $lead->statusTone() }}"><i></i>{{ ucwords($lead->status) }}</span>
                     </td>
                     <td class="rl-field rl-date" data-label="Date">
                         <span class="cell-date">
@@ -125,7 +125,7 @@
                                     'initials' => $initials($leadName),
                                     'tone' => $avTone($leadName),
                                     'subject' => $lead->subject,
-                                    'status' => ucfirst($lead->status),
+                                    'status' => ucwords($lead->status),
                                     'statusTone' => $lead->statusTone(),
                                     'stage' => $lead->stage,
                                     'url' => route('leads.show', $lead),

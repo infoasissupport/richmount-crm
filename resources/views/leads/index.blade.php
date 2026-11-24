@@ -47,13 +47,17 @@
                         <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-filter"/></svg>
                         <select name="status" aria-label="Filter by status" onchange="this.form.submit()">
                             <option value="">All Status</option>
-                            <option value="New" {{ request('status') == 'New' ? 'selected' : '' }}>New</option>
-                            <option value="Opened" {{ request('status') == 'Opened' ? 'selected' : '' }}>Opened</option>
-                            <option value="Contacted" {{ request('status') == 'Contacted' ? 'selected' : '' }}>Contacted</option>
-                            <option value="Proposal" {{ request('status') == 'Proposal' ? 'selected' : '' }}>Proposal</option>
-                            <option value="Negotiation" {{ request('status') == 'Negotiation' ? 'selected' : '' }}>Negotiation</option>
-                            <option value="Won" {{ request('status') == 'Won' ? 'selected' : '' }}>Won</option>
-                            <option value="Lost" {{ request('status') == 'Lost' ? 'selected' : '' }}>Lost</option>
+                            <option value="New" {{ strcasecmp((string) request('status'), 'New') === 0 ? 'selected' : '' }}>New</option>
+                            <option value="Opened" {{ strcasecmp((string) request('status'), 'Opened') === 0 ? 'selected' : '' }}>Opened</option>
+                            <option value="Contacted" {{ strcasecmp((string) request('status'), 'Contacted') === 0 ? 'selected' : '' }}>Contacted</option>
+                            <option value="Proposal" {{ strcasecmp((string) request('status'), 'Proposal') === 0 ? 'selected' : '' }}>Proposal</option>
+                            <option value="Pending Approval" {{ strcasecmp((string) request('status'), 'Pending Approval') === 0 ? 'selected' : '' }}>Pending Approval</option>
+                            <option value="Approved" {{ strcasecmp((string) request('status'), 'Approved') === 0 ? 'selected' : '' }}>Approved</option>
+                            <option value="Rejected" {{ strcasecmp((string) request('status'), 'Rejected') === 0 ? 'selected' : '' }}>Rejected</option>
+                            <option value="Negotiation" {{ strcasecmp((string) request('status'), 'Negotiation') === 0 ? 'selected' : '' }}>Negotiation</option>
+                            <option value="Won" {{ strcasecmp((string) request('status'), 'Won') === 0 ? 'selected' : '' }}>Won</option>
+                            <option value="Lost" {{ strcasecmp((string) request('status'), 'Lost') === 0 ? 'selected' : '' }}>Lost</option>
+                            <option value="Closed" {{ strcasecmp((string) request('status'), 'Closed') === 0 ? 'selected' : '' }}>Closed</option>
                         </select>
                     </span>
 

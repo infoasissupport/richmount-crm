@@ -365,12 +365,14 @@ class QuotationTest extends TestCase
         $submitResponse = $this->post("/quotations/{$quote->id}/submit");
         $submitResponse->assertRedirect();
         $this->assertEquals('pending', $quote->fresh()->status);
+        $this->assertEquals('Pending Approval', $lead->fresh()->status);
 
         // 2. Approve quotation
         $this->actingAs($superAdmin);
         $approveResponse = $this->post("/quotations/{$quote->id}/approve");
         $approveResponse->assertRedirect();
         $this->assertEquals('approved', $quote->fresh()->status);
+        $this->assertEquals('Approved', $lead->fresh()->status);
         $this->assertEquals($superAdmin->id, $quote->fresh()->approved_by_id);
 
         // 3. Send quotation to customer
@@ -411,6 +413,8 @@ class QuotationTest extends TestCase
         $responseOk->assertRedirect();
         $this->assertEquals('rejected', $quote->fresh()->status);
         $this->assertEquals('Gross margin is below 18%. Please revise material costs with supplier.', $quote->fresh()->rejection_reason);
+        $this->assertEquals('Rejected', $quote->fresh()->lead?->status);
+        $this->assertEquals('red', $quote->fresh()->lead?->statusTone());
     }
 
     public function test_pdf_export_for_all_three_branch_formats(): void

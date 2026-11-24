@@ -57,11 +57,19 @@ class Lead extends Model
     /**
      * Scope to enforce role visibility rules.
      * The engineer sees only assigned leads. When marked Sent/Closed, it disappears from engineer view.
+     * The accountant sees only awarded leads.
      */
     public function scopeAccessibleBy(Builder $query, User $user): Builder
     {
-        if ($user->isSuperAdmin() || $user->isAccountant()) {
+        if ($user->isSuperAdmin()) {
             return $query;
+        }
+
+        if ($user->isAccountant()) {
+            return $query->where(function ($q) {
+                $q->where('stage', 'awarded')
+                  ->orWhere('status', 'Won');
+            });
         }
 
         if ($user->isEstimation()) {

@@ -45,6 +45,61 @@
     <!-- Live Dynamic KPIs -->
     @include('partials.kpi-cards', ['kpis' => $kpis])
 
+    @if($user->isAccountant())
+    <!-- Approved & Awarded Quotations for Accountant -->
+    <section class="bottom-grid fill">
+        <article class="card">
+            <header class="card-head recent-head">
+                <h2>Approved &amp; Awarded Quotations</h2>
+                <div class="head-actions">
+                    <form method="GET" action="{{ route('dashboard') }}" id="recentFilterForm" class="recent-filters">
+                        <input type="hidden" name="pipeline_period" value="{{ $pipelinePeriod }}">
+                        
+                        <label class="search-input recent-search">
+                            <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+                                <use href="#i-search"/>
+                            </svg>
+                            <input type="search" name="search" id="recentSearch" placeholder="Search by quote no, client, subject..." aria-label="Search quotations" value="{{ request('search') }}" onchange="document.getElementById('recentFilterForm').submit()">
+                        </label>
+
+                        <span class="select-wrap mini with-icon">
+                            <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+                                <use href="#i-filter"/>
+                            </svg>
+                            <select name="status" id="recentStatus" aria-label="Filter by status" onchange="document.getElementById('recentFilterForm').submit()">
+                                <option value="">All Status</option>
+                                <option value="approved" {{ strtolower((string) request('status')) === 'approved' ? 'selected' : '' }}>Approved</option>
+                                <option value="awarded" {{ strtolower((string) request('status')) === 'awarded' ? 'selected' : '' }}>Awarded</option>
+                            </select>
+                        </span>
+
+                        <span class="select-wrap mini with-icon">
+                            <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+                                <use href="#i-calendar"/>
+                            </svg>
+                            <select name="period" id="recentPeriod" aria-label="Date period" onchange="document.getElementById('recentFilterForm').submit()">
+                                <option value="month" {{ request('period', 'month') === 'month' ? 'selected' : '' }}>This Month</option>
+                                <option value="7" {{ request('period') === '7' ? 'selected' : '' }}>Last 7 Days</option>
+                                <option value="30" {{ request('period') === '30' ? 'selected' : '' }}>Last 30 Days</option>
+                                <option value="year" {{ request('period') === 'year' ? 'selected' : '' }}>This Year</option>
+                                <option value="all" {{ request('period') === 'all' ? 'selected' : '' }}>All Time</option>
+                            </select>
+                        </span>
+                    </form>
+                </div>
+            </header>
+
+            @include('quotations.partials.dashboard-table', [
+                'quotations' => $recentQuotations,
+                'emptyText' => request('search') || request('status') ? 'No quotations match your search criteria.' : 'No approved or awarded quotations found in the selected period.',
+            ])
+
+            @if($recentQuotations && $recentQuotations->total() > 0)
+                {{ $recentQuotations->links() }}
+            @endif
+        </article>
+    </section>
+    @else
     <!-- Recent Leads with Backend Filter & Pagination -->
     <section class="bottom-grid fill">
         <article class="card">
@@ -108,6 +163,7 @@
             @endif
         </article>
     </section>
+    @endif
 
     <!-- <section class="card pipeline" id="pipeline">
         <header class="card-head">

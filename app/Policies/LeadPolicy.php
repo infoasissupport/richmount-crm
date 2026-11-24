@@ -9,17 +9,21 @@ class LeadPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->can('leads.view') || $user->isAccountant();
+        if ($user->isAccountant()) {
+            return false;
+        }
+
+        return $user->can('leads.view');
     }
 
     public function view(User $user, Lead $lead): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
+        if ($user->isAccountant()) {
+            return false;
         }
 
-        if ($user->isAccountant()) {
-            return $lead->stage === 'awarded' || strtolower((string) $lead->status) === 'won';
+        if ($user->isSuperAdmin()) {
+            return true;
         }
 
         if ($user->can('leads.view')) {

@@ -26,6 +26,9 @@ class DashboardController extends Controller
         $kpis = $this->dashboardService->getKpis($user, $period);
         $pipeline = $this->dashboardService->getPipeline($user, $pipelinePeriod);
         $recentLeads = $this->dashboardService->getRecentLeads($user, $request->only(['search', 'status', 'period']));
+        $recentQuotations = $user->isAccountant()
+            ? $this->dashboardService->getRecentQuotations($user, $request->only(['search', 'status', 'period']))
+            : null;
         $branches = Branch::active()->get();
 
         if ($request->wantsJson()) {
@@ -35,6 +38,7 @@ class DashboardController extends Controller
                     'kpis' => $kpis,
                     'pipeline' => $pipeline,
                     'recent_leads' => $recentLeads,
+                    'recent_quotations' => $recentQuotations,
                 ],
             ]);
         }
@@ -58,6 +62,7 @@ class DashboardController extends Controller
             'kpis',
             'pipeline',
             'recentLeads',
+            'recentQuotations',
             'period',
             'pipelinePeriod',
             'engineers',

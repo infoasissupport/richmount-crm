@@ -52,7 +52,7 @@ class QuotationTest extends TestCase
         $response->assertSee($quote->quote_number);
     }
 
-    public function test_creating_quotation_from_lead_shows_lead_status_in_builder(): void
+    public function test_creating_quotation_from_lead_renders_builder(): void
     {
         $engineer = User::where('role_name', 'engineer')->first();
         $this->actingAs($engineer);
@@ -62,8 +62,9 @@ class QuotationTest extends TestCase
 
         $response = $this->get('/quotations/builder?lead='.$lead->id);
         $response->assertStatus(200);
-        $response->assertSee('Lead Status');
-        $response->assertSee(ucfirst($lead->status));
+        $response->assertSee($lead->lead_number);
+        $response->assertSee($lead->company_name);
+        $response->assertDontSee('Lead Status');
     }
 
     public function test_pending_quotation_builder_renders_request_revision_modal(): void

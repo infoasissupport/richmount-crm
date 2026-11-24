@@ -23,7 +23,7 @@
                             <select name="lead" id="quoteLeadSelect" required>
                                 @foreach($availableLeads as $quotableLead)
                                     <option value="{{ $quotableLead->id }}">
-                                        {{ $quotableLead->lead_number }} &middot; {{ $quotableLead->company_name }} &mdash; {{ $quotableLead->subject }} ({{ ucfirst($quotableLead->status) }})
+                                        {{ $quotableLead->lead_number }} &middot; {{ $quotableLead->company_name }} &mdash; {{ $quotableLead->subject }}
                                     </option>
                                 @endforeach
                             </select>

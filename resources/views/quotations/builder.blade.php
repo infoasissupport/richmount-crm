@@ -121,7 +121,6 @@
             @endif
         @else
             {{-- new quotation: Save Draft creates it; Submit for Approval creates it and submits it in one go --}}
-            <span class="pill pill-{{ $lead->statusTone() }}" style="margin-right: 4px;"><i></i>Lead: {{ ucfirst($lead->status) }}</span>
             <span class="pill pill-amber" id="qDraftStatusPill" style="margin-right: 4px;"><i></i>New draft</span>
             <button class="btn btn-ghost" type="button" onclick="submitQuoteForm()">
                 <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bookmark"/></svg>
@@ -248,17 +247,14 @@
                             </span>
                             Customer &amp; Project
                         </h2>
-                        <span class="pill pill-{{ $lead->statusTone() }}" style="margin-left: auto; margin-right: 12px;">
-                            <i></i>Lead: {{ ucfirst($lead->status) }}
-                        </span>
                         @if(!$quote && isset($availableLeads) && $availableLeads->count() > 1)
-                            <div style="display: flex; align-items: center; gap: 8px; margin-right: 12px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-left: auto; margin-right: 12px;">
                                 <label style="font-size: 12px; color: var(--muted); font-weight: 500;">Select Lead:</label>
                                 <span class="select-wrap mini">
                                     <select onchange="window.location.href='{{ route('quotations.builder') }}?lead=' + this.value">
                                         @foreach($availableLeads as $avl)
                                             <option value="{{ $avl->id }}" {{ $avl->id === $lead->id ? 'selected' : '' }}>
-                                                {{ $avl->lead_number }} · {{ $avl->company_name }} ({{ ucfirst($avl->status) }})
+                                                {{ $avl->lead_number }} · {{ $avl->company_name }}
                                             </option>
                                         @endforeach
                                     </select>
@@ -274,7 +270,6 @@
                     <dl class="kv cols-2" id="qLeadKv">
                         <dt>Quote Number</dt><dd><b id="qLeadQuoteNumber">{{ $quote ? $quote->quote_number : 'Auto-generated on save' }}</b></dd>
                         <dt>Lead Number</dt><dd>{{ $lead->lead_number }}</dd>
-                        <dt>Lead Status</dt><dd><span class="pill pill-{{ $lead->statusTone() }}"><i></i>{{ ucfirst($lead->status) }}</span></dd>
                         <dt>Customer</dt><dd><strong>{{ $lead->company_name }}</strong></dd>
                         <dt>Contact</dt><dd>{{ $lead->contact_person }} ({{ $lead->phone }})</dd>
                         <dt>Project Subject</dt><dd>{{ $lead->subject }}</dd>

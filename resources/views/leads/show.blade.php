@@ -69,7 +69,7 @@
                     </span>
                     Lead Details
                 </h2>
-                <span class="pill pill-{{ $lead->statusTone() }}"><i></i>{{ ucwords($lead->status) }}</span>
+                <span class="pill pill-{{ $lead->statusTone() }}"><i></i>{{ $lead->statusLabel() }}</span>
             </header>
             <dl class="kv" id="leadKv">
                 <dt>Lead Number</dt><dd><strong>{{ $lead->lead_number }}</strong></dd>
@@ -152,7 +152,7 @@
                         <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-filter"/></svg>
                         <select id="quoteStatusFilter" aria-label="Filter quotations by status">
                             <option value="">All Status</option>
-                            @foreach(['draft' => 'Draft', 'pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'sent' => 'Sent', 'awarded' => 'Awarded'] as $val => $label)
+                            @foreach(['draft' => 'Draft', 'pending' => 'Pending Approval', 'approved' => 'Approved', 'rejected' => 'Revision Req.', 'sent' => 'Sent', 'awarded' => 'Awarded'] as $val => $label)
                                 <option value="{{ $val }}">{{ $label }}</option>
                             @endforeach
                         </select>
@@ -193,8 +193,13 @@
                                             'awarded' => 'primary',
                                             default => 'gray'
                                         };
+                                        $qLabel = match($q->status) {
+                                            'pending' => 'Pending Approval',
+                                            'rejected' => 'Revision Req.',
+                                            default => ucfirst($q->status),
+                                        };
                                     @endphp
-                                    <span class="pill pill-{{ $qTone }}"><i></i>{{ ucfirst($q->status) }}</span>
+                                    <span class="pill pill-{{ $qTone }}"><i></i>{{ $qLabel }}</span>
                                 </td>
                                 <td class="num"><b>AED {{ number_format($q->grand_total, 2) }}</b></td>
                                 <td class="ta-c">

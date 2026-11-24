@@ -75,7 +75,7 @@
                         </span>
                     </td>
                     <td class="rl-status">
-                        <span class="pill pill-{{ $lead->statusTone() }}"><i></i>{{ ucwords($lead->status) }}</span>
+                        <span class="pill pill-{{ $lead->statusTone() }}"><i></i>{{ $lead->statusLabel() }}</span>
                     </td>
                     <td class="rl-field rl-date" data-label="Date">
                         <span class="cell-date">
@@ -125,7 +125,7 @@
                                     'initials' => $initials($leadName),
                                     'tone' => $avTone($leadName),
                                     'subject' => $lead->subject,
-                                    'status' => ucwords($lead->status),
+                                    'status' => $lead->statusLabel(),
                                     'statusTone' => $lead->statusTone(),
                                     'stage' => $lead->stage,
                                     'url' => route('leads.show', $lead),
@@ -140,7 +140,7 @@
                                         ['Source', $lead->source ?: '—'],
                                         ['Estimated Value', $lead->estimated_value > 0 ? 'AED ' . number_format($lead->estimated_value) : '—'],
                                         ['Created', $lead->created_at->format('d M Y')],
-                                        $q ? ['Quotation', $q->quote_number . ' · ' . ucfirst($q->status)] : null,
+                                        $q ? ['Quotation', $q->quote_number . ' · ' . ($q->status === 'rejected' ? 'Revision Req.' : ($q->status === 'pending' ? 'Pending Approval' : ucfirst($q->status)))] : null,
                                         $project ? ['Project', $project->project_number] : null,
                                     ])),
                                 ];

@@ -463,7 +463,12 @@ class DashboardService
 
         // Status filter
         if (!empty($filters['status'])) {
-            $query->whereRaw('LOWER(status) = ?', [strtolower($filters['status'])]);
+            $status = strtolower($filters['status']);
+            if (in_array($status, ['revision req.', 'revision req', 'revision required', 'rejected'], true)) {
+                $query->whereIn('status', ['Revision Req.', 'Rejected', 'Revision Required', 'rejected']);
+            } else {
+                $query->whereRaw('LOWER(status) = ?', [$status]);
+            }
         }
 
         // Date Period filter

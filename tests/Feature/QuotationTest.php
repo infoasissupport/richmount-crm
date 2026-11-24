@@ -413,7 +413,7 @@ class QuotationTest extends TestCase
         $responseOk->assertRedirect();
         $this->assertEquals('rejected', $quote->fresh()->status);
         $this->assertEquals('Gross margin is below 18%. Please revise material costs with supplier.', $quote->fresh()->rejection_reason);
-        $this->assertEquals('Rejected', $quote->fresh()->lead?->status);
+        $this->assertEquals('Revision Req.', $quote->fresh()->lead?->statusLabel());
         $this->assertEquals('red', $quote->fresh()->lead?->statusTone());
     }
 

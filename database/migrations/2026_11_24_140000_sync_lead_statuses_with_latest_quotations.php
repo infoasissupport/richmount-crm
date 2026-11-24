@@ -19,7 +19,7 @@ return new class extends Migration
             }
 
             $newStatus = match ($latestQuote->status) {
-                'rejected' => 'Rejected',
+                'rejected' => 'Revision Req.',
                 'pending' => 'Pending Approval',
                 'approved' => 'Approved',
                 'sent' => 'Closed',
@@ -42,3 +42,4 @@ return new class extends Migration
         // No-op
     }
 };
+

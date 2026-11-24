@@ -73,7 +73,7 @@
                                 <option value="proposal" {{ strcasecmp((string) request('status'), 'proposal') === 0 ? 'selected' : '' }}>Proposal</option>
                                 <option value="pending approval" {{ strcasecmp((string) request('status'), 'pending approval') === 0 ? 'selected' : '' }}>Pending Approval</option>
                                 <option value="approved" {{ strcasecmp((string) request('status'), 'approved') === 0 ? 'selected' : '' }}>Approved</option>
-                                <option value="rejected" {{ strcasecmp((string) request('status'), 'rejected') === 0 ? 'selected' : '' }}>Rejected</option>
+                                <option value="revision req." {{ in_array(strtolower((string) request('status')), ['revision req.', 'revision req', 'revision required', 'rejected'], true) ? 'selected' : '' }}>Revision Req.</option>
                                 <option value="negotiation" {{ strcasecmp((string) request('status'), 'negotiation') === 0 ? 'selected' : '' }}>Negotiation</option>
                                 <option value="won" {{ strcasecmp((string) request('status'), 'won') === 0 ? 'selected' : '' }}>Won</option>
                                 <option value="lost" {{ strcasecmp((string) request('status'), 'lost') === 0 ? 'selected' : '' }}>Lost</option>

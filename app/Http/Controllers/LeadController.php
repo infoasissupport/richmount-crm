@@ -31,7 +31,14 @@ class LeadController extends Controller
         $query = Lead::accessibleBy($user)
             ->with(['branch', 'assignedEngineer', 'latestQuotation', 'projects'])
             ->when($request->filled('branch_id'), fn($q) => $q->where('branch_id', $request->branch_id))
-            ->when($request->filled('status'), fn($q) => $q->whereRaw('LOWER(status) = ?', [strtolower($request->status)]))
+            ->when($request->filled('status'), function ($q) use ($request) {
+                $status = strtolower($request->status);
+                if (in_array($status, ['revision req.', 'revision req', 'revision required', 'rejected'], true)) {
+                    $q->whereIn('status', ['Revision Req.', 'Rejected', 'Revision Required', 'rejected']);
+                } else {
+                    $q->whereRaw('LOWER(status) = ?', [$status]);
+                }
+            })
             ->when($request->filled('stage'), fn($q) => $q->where('stage', $request->stage))
             ->when($request->filled('department'), fn($q) => $q->where('department', $request->department))
             ->when($request->filled('engineer_id'), fn($q) => $q->where('assigned_engineer_id', $request->engineer_id))

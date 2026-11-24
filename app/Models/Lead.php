@@ -155,6 +155,27 @@ class Lead extends Model
     }
 
     /**
+     * Display label for the lead status.
+     */
+    public function statusLabel(): string
+    {
+        return match (strtolower(trim((string) $this->status))) {
+            'rejected', 'revision req.', 'revision req', 'revision required' => 'Revision Req.',
+            'pending', 'pending approval' => 'Pending Approval',
+            'draft' => 'Draft',
+            'proposal' => 'Proposal',
+            'new' => 'New',
+            'opened' => 'Opened',
+            'contacted' => 'Contacted',
+            'negotiation' => 'Negotiation',
+            'won', 'awarded' => 'Won',
+            'closed', 'sent' => 'Closed',
+            'lost' => 'Lost',
+            default => ucwords($this->status),
+        };
+    }
+
+    /**
      * Pill tone for the lead status (matches the .pill-* classes).
      */
     public function statusTone(): string
@@ -166,7 +187,7 @@ class Lead extends Model
             'draft', 'proposal' => 'amber',
             'pending', 'pending approval' => 'purple',
             'approved' => 'green',
-            'rejected', 'revision req.', 'revision required' => 'red',
+            'rejected', 'revision req.', 'revision req', 'revision required' => 'red',
             'negotiation' => 'purple',
             'sent', 'closed' => 'gray',
             'won', 'awarded' => 'primary',

@@ -420,7 +420,7 @@ class QuotationService
         ]);
 
         $quotation->lead?->update([
-            'status' => 'Rejected',
+            'status' => 'Revision Req.',
         ]);
 
         $quotation->lead?->activities()->create([

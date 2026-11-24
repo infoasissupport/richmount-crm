@@ -48,6 +48,7 @@
                         <select name="status" aria-label="Filter by status" onchange="this.form.submit()">
                             <option value="">All Status</option>
                             <option value="New" {{ request('status') == 'New' ? 'selected' : '' }}>New</option>
+                            <option value="Opened" {{ request('status') == 'Opened' ? 'selected' : '' }}>Opened</option>
                             <option value="Contacted" {{ request('status') == 'Contacted' ? 'selected' : '' }}>Contacted</option>
                             <option value="Proposal" {{ request('status') == 'Proposal' ? 'selected' : '' }}>Proposal</option>
                             <option value="Negotiation" {{ request('status') == 'Negotiation' ? 'selected' : '' }}>Negotiation</option>

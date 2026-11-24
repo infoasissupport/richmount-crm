@@ -182,6 +182,10 @@ class LeadController extends Controller
     {
         $this->authorize('view', $lead);
 
+        if ($user = request()->user()) {
+            $lead->markOpenedByEngineer($user);
+        }
+
         $lead->load(['branch', 'assignedEngineer', 'createdBy', 'quotations.preparedBy', 'attachments', 'activities.user']);
         $engineers = User::where('role_name', 'engineer')->with('branch')->get();
         $branches = Branch::active()->get();

@@ -161,12 +161,42 @@ class Lead extends Model
     {
         return match (strtolower($this->status)) {
             'new' => 'green',
+            'opened' => 'blue',
             'contacted' => 'blue',
             'proposal' => 'amber',
             'negotiation' => 'purple',
             'won' => 'primary',
             default => 'gray',
         };
+    }
+
+    /**
+     * Mark the lead as Opened if opened by an engineer and created by an estimation user while in New status.
+     */
+    public function markOpenedByEngineer(User $user): bool
+    {
+        if ($user->isEngineer() && strtolower((string) $this->status) === 'new') {
+            $creator = $this->createdBy;
+            if ($creator && $creator->isEstimation()) {
+                $this->update(['status' => 'Opened']);
+
+                $this->activities()->create([
+                    'user_id' => $user->id,
+                    'kind' => 'status',
+                    'text' => "Lead opened by assigned engineer {$user->name}",
+                ]);
+
+                \App\Services\AuditService::log(
+                    'status_change',
+                    $this,
+                    "Lead {$this->lead_number} status changed from New to Opened upon view by engineer {$user->name}"
+                );
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

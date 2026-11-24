@@ -69,7 +69,7 @@
                     </span>
                     Lead Details
                 </h2>
-                <span class="pill pill-primary"><i></i>{{ $lead->status }}</span>
+                <span class="pill pill-{{ $lead->statusTone() }}"><i></i>{{ ucfirst($lead->status) }}</span>
             </header>
             <dl class="kv" id="leadKv">
                 <dt>Lead Number</dt><dd><strong>{{ $lead->lead_number }}</strong></dd>

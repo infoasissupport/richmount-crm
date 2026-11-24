@@ -69,6 +69,10 @@ class LeadApiController extends Controller
     {
         $this->authorize('view', $lead);
 
+        if ($user = request()->user()) {
+            $lead->markOpenedByEngineer($user);
+        }
+
         return response()->json([
             'success' => true,
             'lead' => $lead->load(['branch', 'assignedEngineer', 'quotations', 'attachments', 'activities.user']),

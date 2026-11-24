@@ -246,7 +246,7 @@ class DashboardService
             ->get();
 
         // Stage 1: New Leads
-        $newItems = $leads->filter(fn($l) => in_array($l->status, ['new', 'contacted']))->values();
+        $newItems = $leads->filter(fn($l) => in_array(strtolower((string) $l->status), ['new', 'contacted', 'opened']))->values();
 
         // Stage 2: Draft Quotations / Proposals
         $draftItems = $leads->filter(fn($l) => $l->status === 'proposal')->values();

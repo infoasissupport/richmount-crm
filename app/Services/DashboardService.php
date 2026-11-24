@@ -319,6 +319,22 @@ class DashboardService
     {
         $quoteQuery = Quotation::accessibleBy($user);
 
+        if ($user->isAccountant()) {
+            $dates = fn ($a, $b) => $this->dateBounds($a, $b);
+
+            return [
+                $this->periodKpi($period, 'quotes', 'Total Quotations', 'file-text',
+                    fn ($a, $b) => (clone $quoteQuery)->whereBetween('quote_date', $dates($a, $b))->count(),
+                    false, route('quotations.index')),
+                $this->periodKpi($period, 'approved_quotes', 'Approved Quotes', 'check-circle',
+                    fn ($a, $b) => (clone $quoteQuery)->where('status', 'approved')->whereBetween('quote_date', $dates($a, $b))->count(),
+                    false, route('quotations.index', ['tab' => 'approved'])),
+                $this->periodKpi($period, 'awarded', 'Awarded Quotes', 'award',
+                    fn ($a, $b) => (clone $quoteQuery)->where('status', 'awarded')->whereBetween('award_date', $dates($a, $b))->count(),
+                    false, route('quotations.index', ['tab' => 'awarded'])),
+            ];
+        }
+
         return [
             $this->periodKpi($period, 'quotes', 'Quotations', 'file-text',
                 fn ($a, $b) => (clone $quoteQuery)->whereBetween('quote_date', $this->dateBounds($a, $b))->count(),
@@ -488,6 +504,51 @@ class DashboardService
         }
 
         return $query->latest('created_at')
+                     ->paginate(5)
+                     ->withQueryString();
+    }
+
+    /**
+     * Query Recent Quotations for Accountant dashboard with real backend filters & pagination.
+     */
+    public function getRecentQuotations(User $user, array $filters = []): LengthAwarePaginator
+    {
+        $query = Quotation::accessibleBy($user)
+            ->with(['lead.assignedEngineer', 'branch', 'preparedBy']);
+
+        // Search filter
+        if (!empty($filters['search'])) {
+            $term = '%' . trim($filters['search']) . '%';
+            $query->where(function ($q) use ($term) {
+                $q->where('quote_number', 'like', $term)
+                  ->orWhereHas('lead', fn ($lq) => $lq->where('company_name', 'like', $term)->orWhere('subject', 'like', $term))
+                  ->orWhereHas('preparedBy', fn ($pq) => $pq->where('name', 'like', $term));
+            });
+        }
+
+        // Status filter
+        if (!empty($filters['status'])) {
+            $query->where('status', strtolower($filters['status']));
+        }
+
+        // Date Period filter
+        if (!empty($filters['period'])) {
+            $period = $filters['period'];
+            $from = match ($period) {
+                '7' => now()->subDays(7),
+                '30' => now()->subDays(30),
+                'year' => now()->startOfYear(),
+                'all' => null,
+                default => now()->startOfMonth(),
+            };
+
+            if ($from) {
+                $query->where('quote_date', '>=', $from->toDateString());
+            }
+        }
+
+        return $query->latest('quote_date')
+                     ->orderByDesc('id')
                      ->paginate(5)
                      ->withQueryString();
     }

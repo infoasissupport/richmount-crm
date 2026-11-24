@@ -60,8 +60,12 @@ class Quotation extends Model
      */
     public function scopeAccessibleBy(Builder $query, User $user): Builder
     {
-        if ($user->isSuperAdmin() || $user->isAccountant()) {
+        if ($user->isSuperAdmin()) {
             return $query;
+        }
+
+        if ($user->isAccountant()) {
+            return $query->whereIn('status', ['approved', 'awarded']);
         }
 
         if ($user->isEstimation()) {

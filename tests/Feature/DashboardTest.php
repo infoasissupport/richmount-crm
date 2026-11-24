@@ -67,7 +67,7 @@ class DashboardTest extends TestCase
         $this->assertContains('invoiced', $keys);
     }
 
-    public function test_accountant_only_sees_awarded_leads(): void
+    public function test_accountant_does_not_see_leads_and_only_sees_approved_and_awarded_quotations(): void
     {
         $accountant = User::where('role_name', 'accountant')->first();
         $this->actingAs($accountant);
@@ -75,36 +75,31 @@ class DashboardTest extends TestCase
         $response = $this->get('/');
         $response->assertOk();
 
-        $recentLeads = $response->viewData('recentLeads');
-        $this->assertNotEmpty($recentLeads);
+        // Dashboard shows approved and awarded quotations for accountant
+        $response->assertSee('Approved & Awarded Quotations', false);
+        $response->assertDontSee('Recent Leads');
 
-        foreach ($recentLeads as $lead) {
-            $isAwarded = $lead->stage === 'awarded' || strtolower((string) $lead->status) === 'won';
-            $this->assertTrue($isAwarded, "Accountant should only see awarded leads, but saw {$lead->lead_number} ({$lead->stage} / {$lead->status})");
+        $recentQuotes = $response->viewData('recentQuotations');
+        $this->assertNotNull($recentQuotes);
+
+        foreach ($recentQuotes as $quote) {
+            $this->assertContains($quote->status, ['approved', 'awarded']);
         }
 
-        // Verify unawarded leads are excluded
-        $nonAwardedLead = Lead::whereNotIn('stage', ['awarded'])
-            ->where('status', '!=', 'Won')
-            ->first();
+        // Accountant cannot view /leads or any lead details page
+        $this->get(route('leads.index'))->assertForbidden();
 
-        if ($nonAwardedLead) {
-            $this->assertFalse(
-                $recentLeads->pluck('id')->contains($nonAwardedLead->id),
-                "Recent leads for accountant should not include non-awarded lead {$nonAwardedLead->lead_number}"
-            );
-
-            // Accountant cannot view a non-awarded lead details page
-            $this->get(route('leads.show', $nonAwardedLead))->assertForbidden();
+        $anyLead = Lead::first();
+        if ($anyLead) {
+            $this->get(route('leads.show', $anyLead))->assertForbidden();
         }
 
-        // Accountant can view an awarded lead details page
-        $awardedLead = Lead::where(function ($q) {
-            $q->where('stage', 'awarded')->orWhere('status', 'Won');
-        })->first();
-
-        if ($awardedLead) {
-            $this->get(route('leads.show', $awardedLead))->assertOk();
+        // Accountant on quotations page only sees approved and awarded quotes
+        $quotesResponse = $this->get(route('quotations.index'));
+        $quotesResponse->assertOk();
+        $accessibleQuotes = \App\Models\Quotation::accessibleBy($accountant)->get();
+        foreach ($accessibleQuotes as $q) {
+            $this->assertContains($q->status, ['approved', 'awarded']);
         }
     }
 

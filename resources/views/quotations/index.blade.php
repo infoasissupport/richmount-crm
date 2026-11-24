@@ -42,16 +42,26 @@
                     <span class="select-wrap mini with-icon">
                         <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-filter"/></svg>
                         <select name="tab" aria-label="Filter by status" onchange="this.form.submit()">
-                            @foreach([
-                                'all' => 'All Status',
-                                'draft' => 'Draft',
-                                'pending' => 'Pending Approval',
-                                'approved' => 'Approved',
-                                'rejected' => 'Revision Req.',
-                                'sent' => 'Sent',
-                                'awarded' => 'Awarded',
-                                'awaiting_project' => 'Awaiting Project',
-                            ] as $tKey => $tLabel)
+                            @php
+                                $tabOptions = auth()->user()->isAccountant()
+                                    ? [
+                                        'all' => 'All Status',
+                                        'approved' => 'Approved',
+                                        'awarded' => 'Awarded',
+                                        'awaiting_project' => 'Awaiting Project',
+                                    ]
+                                    : [
+                                        'all' => 'All Status',
+                                        'draft' => 'Draft',
+                                        'pending' => 'Pending Approval',
+                                        'approved' => 'Approved',
+                                        'rejected' => 'Revision Req.',
+                                        'sent' => 'Sent',
+                                        'awarded' => 'Awarded',
+                                        'awaiting_project' => 'Awaiting Project',
+                                    ];
+                            @endphp
+                            @foreach($tabOptions as $tKey => $tLabel)
                                 <option value="{{ $tKey }}" {{ $tab === $tKey ? 'selected' : '' }}>{{ $tLabel }} ({{ $tabCounts[$tKey] ?? 0 }})</option>
                             @endforeach
                         </select>

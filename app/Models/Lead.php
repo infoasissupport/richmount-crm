@@ -66,10 +66,7 @@ class Lead extends Model
         }
 
         if ($user->isAccountant()) {
-            return $query->where(function ($q) {
-                $q->where('stage', 'awarded')
-                  ->orWhere('status', 'Won');
-            });
+            return $query->whereRaw('1 = 0');
         }
 
         if ($user->isEstimation()) {

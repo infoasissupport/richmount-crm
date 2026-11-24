@@ -15,8 +15,11 @@ class QuotationPolicy
     public function view(User $user, Quotation $quote): bool
     {
         if ($user->can('quotes.view')) {
-            if ($user->isSuperAdmin() || $user->isAccountant()) {
+            if ($user->isSuperAdmin()) {
                 return true;
+            }
+            if ($user->isAccountant()) {
+                return in_array($quote->status, ['approved', 'awarded'], true);
             }
             if ($user->isEstimation()) {
                 return $user->canAccessBranch($quote->branch_id);

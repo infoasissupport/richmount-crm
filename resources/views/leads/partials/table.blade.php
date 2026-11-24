@@ -38,7 +38,7 @@
                         'branch_id', 'assigned_engineer_id', 'source', 'estimated_value', 'notes', 'stage'])
                         + ['lead_date' => $lead->lead_date?->format('Y-m-d')];
                 @endphp
-                <tr>
+                <tr class="lead-row @can('leads.edit') clickable @endcan" @can('leads.edit') data-edit-lead='@json($editLead)' @endcan>
                     <td class="rl-no">{{ $loop->iteration + ($leads->currentPage() - 1) * $leads->perPage() }}</td>
                     <td class="rl-leadno">{{ $lead->lead_number }}</td>
                     <td class="strong rl-name" title="{{ $leadName }}">

@@ -570,10 +570,50 @@
                 {{-- Descriptions Card --}}
                 <section class="card">
                     <div class="form-grid">
-                        <label class="field full">
-                            <span class="field-label">Technical Description &amp; Scope of Work</span>
-                            <textarea name="technical_description" rows="3" maxlength="5000" placeholder="Method statement, execution timeline, materials grade...">{{ old('technical_description', $quote?->technical_description) }}</textarea>
-                        </label>
+                        @php
+                            $deptKey = $lead->department ?? 'construction';
+                            $stdScopes = [
+                                'construction' => "1. Mobilization, site preparation, and statutory safety approvals.\n2. Execution of civil and structural concrete works as per approved drawings.\n3. Blockwork, thermal insulation, and cement plaster finishes.\n4. MEP first-fix piping, conduits, and service sleeve coordination.\n5. Testing, compressive cube curing, quality audits, and handover.",
+                                'interior' => "1. Detailed dimensional site survey, layout setting-out, and material approvals.\n2. Supply and installation of gypsum partition walls and acoustic ceiling systems.\n3. Premium architectural floor/wall finishes and custom joinery fabrication.\n4. MEP second-fix, recessed LED lighting fixtures, and HVAC diffuser alignment.\n5. Snagging inspection, comprehensive deep cleaning, and project handover.",
+                                'renovation' => "1. Protection of existing structures, isolation of utilities, and controlled demolition.\n2. Surface remediation, concrete repairs, and substrate preparation.\n3. Installation of specified architectural finishes, cabinetry, and fixtures.\n4. Modernization and pressure testing of MEP distribution networks.\n5. Safe debris removal to approved municipal sites and final commissioning.",
+                                'mep' => "1. Shop drawing review, engineering submittals, and civil defense compliance.\n2. Supply, installation, and pressure testing of HVAC ductwork and refrigerant piping.\n3. Electrical cable containment, distribution boards, wiring, and earthing.\n4. Hot/cold water plumbing networks and gravity drainage system installation.\n5. System balancing, electrical megger testing, hydro-testing, and O&M handover.",
+                            ];
+                            $deptScope = $stdScopes[$deptKey] ?? $stdScopes['construction'];
+                        @endphp
+                        <div class="field full">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <label for="technicalDescriptionInput" class="field-label" style="margin-bottom: 0;">Technical Description &amp; Scope of Work</label>
+                                <div class="catalog-wrap">
+                                    <button class="btn btn-ghost btn-sm" type="button" id="techCatalogBtn" onclick="toggleTechCatalogMenu(event)" aria-haspopup="menu" aria-expanded="false" aria-controls="techCatalogMenu">
+                                        <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-book"/></svg>
+                                        Add from catalog
+                                    </button>
+                                    <div class="popover catalog-menu" id="techCatalogMenu" role="menu" hidden>
+                                        <div class="pop-head">Standard Scopes ({{ $lead->departmentLabel() }})</div>
+                                        <button type="button" class="pop-item" role="menuitem" data-tech-catalog="{{ $deptScope }}">
+                                            <span><strong>Complete Scope &amp; Method Statement</strong><br><small>5-point execution strategy</small></span>
+                                        </button>
+                                        <div class="pop-div"></div>
+                                        <div class="pop-head">{{ $lead->departmentLabel() }} Items</div>
+                                        @foreach($catalog[$ownDept] ?? [] as [$desc, $unit])
+                                            <button type="button" class="pop-item" role="menuitem" data-tech-catalog="Supply and execution of {{ strtolower($desc) }} as per specifications.">
+                                                <span>{{ $desc }}<br><small>{{ $unit }}</small></span>
+                                            </button>
+                                        @endforeach
+                                        @if($otherTrades->isNotEmpty())
+                                            <div class="pop-div"></div>
+                                            <div class="pop-head">Other trades</div>
+                                            @foreach($otherTrades as [$desc, $unit])
+                                                <button type="button" class="pop-item" role="menuitem" data-tech-catalog="Supply and execution of {{ strtolower($desc) }} as per specifications.">
+                                                    <span>{{ $desc }}<br><small>{{ $unit }}</small></span>
+                                                </button>
+                                            @endforeach
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            <textarea id="technicalDescriptionInput" name="technical_description" rows="3" maxlength="5000" placeholder="Method statement, execution timeline, materials grade...">{{ old('technical_description', $quote?->technical_description) }}</textarea>
+                        </div>
                         <label class="field full">
                             <span class="field-label">Terms &amp; Conditions</span>
                             <textarea name="terms_conditions" rows="4" maxlength="5000" placeholder="Payment milestones, validity, warranty, client obligations...">{{ old('terms_conditions', $quote ? $quote->terms_conditions : "1. 50% Advance payment with confirmed Purchase Order.\n2. 40% Progressive payment against delivery and installation.\n3. 10% Final retention upon completion and client handover.\n4. Quotation valid for 30 calendar days from issue date.") }}</textarea>
@@ -1656,11 +1696,42 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
         var menu = document.getElementById('catalogMenu');
         if (!menu) return;
         menu.hidden = !open;
-        document.getElementById('catalogBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+        var btn = document.getElementById('catalogBtn');
+        if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
     function toggleCatalogMenu(event) {
         event.stopPropagation();
+        setTechCatalogMenu(false);
         setCatalogMenu(document.getElementById('catalogMenu').hidden);
+    }
+    function setTechCatalogMenu(open) {
+        var menu = document.getElementById('techCatalogMenu');
+        if (!menu) return;
+        menu.hidden = !open;
+        var btn = document.getElementById('techCatalogBtn');
+        if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    function toggleTechCatalogMenu(event) {
+        event.stopPropagation();
+        setCatalogMenu(false);
+        setTechCatalogMenu(document.getElementById('techCatalogMenu').hidden);
+    }
+    function addTechCatalogItem(text) {
+        var textarea = document.getElementById('technicalDescriptionInput');
+        if (!textarea) return;
+        var current = textarea.value.trim();
+        if (!current) {
+            textarea.value = text;
+        } else {
+            if (text.indexOf('\n') === -1) {
+                textarea.value = current + '\n• ' + text;
+            } else {
+                textarea.value = current + '\n\n' + text;
+            }
+        }
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        textarea.dispatchEvent(new Event('change', { bubbles: true }));
+        textarea.focus();
     }
     // fills the first row with an empty description (or a new row) with the item and unit, then jumps to its price
     function addCatalogItem(desc, unit) {
@@ -1689,9 +1760,21 @@ Please Find Attached Our Quotation {{ $quote->quote_number }} For {{ $lead->subj
             addCatalogItem(item.dataset.catalogDesc, item.dataset.catalogUnit);
             return;
         }
-        if (!e.target.closest('#catalogMenu')) setCatalogMenu(false);
+        var techItem = e.target.closest('[data-tech-catalog]');
+        if (techItem) {
+            setTechCatalogMenu(false);
+            addTechCatalogItem(techItem.dataset.techCatalog);
+            return;
+        }
+        if (!e.target.closest('#catalogMenu') && !e.target.closest('#catalogBtn')) setCatalogMenu(false);
+        if (!e.target.closest('#techCatalogMenu') && !e.target.closest('#techCatalogBtn')) setTechCatalogMenu(false);
     });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setCatalogMenu(false); });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            setCatalogMenu(false);
+            setTechCatalogMenu(false);
+        }
+    });
 
     /* ---------- Line item photos (quotations.partials.line-photos): up to 3, click to enlarge ---------- */
     var MAX_LINE_PHOTOS = 3;

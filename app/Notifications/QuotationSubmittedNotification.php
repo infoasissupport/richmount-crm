@@ -43,7 +43,7 @@ class QuotationSubmittedNotification extends Notification
             'quote_number' => $this->quotation->quote_number,
             'title' => "Quotation Submitted: {$this->quotation->quote_number}",
             'text' => "Quotation {$this->quotation->quote_number} for {$client} (AED {$grandTotal}) submitted for approval by {$this->author->name}",
-            'link' => route('quotations.builder', ['id' => $this->quotation->id]),
+            'link' => route('quotations.builder', ['id' => $this->quotation->id], false),
             'submitted_by' => $this->author->name,
             'created_at' => now()->toIso8601String(),
         ];

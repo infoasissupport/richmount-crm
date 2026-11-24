@@ -206,7 +206,7 @@ class LeadAssignmentNotificationTest extends TestCase
         $this->assertEquals($quotation->id, $estimatorNotif->data['quotation_id']);
         $this->assertStringContainsString($quotation->quote_number, $estimatorNotif->data['title']);
         $this->assertStringContainsString($engineer->name, $estimatorNotif->data['text']);
-        $this->assertEquals(route('quotations.builder', ['id' => $quotation->id]), $estimatorNotif->data['link']);
+        $this->assertEquals(route('quotations.builder', ['id' => $quotation->id], false), $estimatorNotif->data['link']);
 
         // 2. Super Admin should have received notification
         $this->assertEquals(1, $superAdmin->unreadNotifications()->count());
@@ -220,5 +220,121 @@ class LeadAssignmentNotificationTest extends TestCase
         $clickResponse = $this->post("/notifications/{$estimatorNotif->id}/read");
         $clickResponse->assertRedirect(route('quotations.builder', ['id' => $quotation->id]));
         $this->assertEquals(0, $estimator->fresh()->unreadNotifications()->count());
+    }
+
+    public function test_legacy_absolute_notification_link_is_sanitized_to_relative_path(): void
+    {
+        $user = User::where('role_name', 'super_admin')->first();
+        $this->actingAs($user);
+
+        // Simulate an existing database notification created with 127.0.0.1:8000
+        $notificationId = (string) \Illuminate\Support\Str::uuid();
+        \Illuminate\Support\Facades\DB::table('notifications')->insert([
+            'id' => $notificationId,
+            'type' => 'App\Notifications\QuotationSubmittedNotification',
+            'notifiable_type' => User::class,
+            'notifiable_id' => $user->id,
+            'data' => json_encode([
+                'type' => 'quote',
+                'title' => 'Quotation Submitted: RM-QT-2026-0006',
+                'text' => 'Quotation RM-QT-2026-0006 submitted for approval',
+                'link' => 'http://127.0.0.1:8000/quotations/builder?id=6',
+            ]),
+            'read_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // GET /notifications should sanitize link to relative path
+        $indexResponse = $this->getJson('/notifications');
+        $indexResponse->assertOk();
+        $indexResponse->assertJsonFragment([
+            'id' => $notificationId,
+            'link' => '/quotations/builder?id=6',
+        ]);
+
+        // Clicking /notifications/{id}/read should redirect to relative path on current host
+        $readResponse = $this->post("/notifications/{$notificationId}/read");
+        $readResponse->assertRedirect('/quotations/builder?id=6');
+    }
+
+    public function test_engineer_opening_lead_created_by_estimation_changes_status_from_new_to_opened(): void
+    {
+        $estimator = User::where('role_name', 'estimation')->firstOrFail();
+        $engineer = User::where('role_name', 'engineer')->firstOrFail();
+        $branch = Branch::firstOrFail();
+
+        $lead = Lead::create([
+            'lead_number' => Lead::nextLeadNumber(),
+            'lead_date' => now()->toDateString(),
+            'customer_name' => 'Musin Client',
+            'company_name' => 'Musin Construction',
+            'phone' => '9645143506',
+            'email' => 'musin@example.com',
+            'department' => 'construction',
+            'branch_id' => $branch->id,
+            'created_by_id' => $estimator->id,
+            'source' => 'Website',
+            'status' => 'New',
+            'stage' => 'new',
+            'subject' => 'New Building Construction',
+            'assigned_engineer_id' => $engineer->id,
+        ]);
+
+        $this->assertEquals('New', $lead->status);
+
+        // When estimator views it, status should not change
+        $this->actingAs($estimator);
+        $this->get(route('leads.show', $lead))->assertOk();
+        $this->assertEquals('New', $lead->fresh()->status);
+
+        // When assigned engineer opens it, status should transition to Opened
+        $this->actingAs($engineer);
+        $response = $this->get(route('leads.show', $lead));
+        $response->assertOk();
+        $response->assertSee('Opened');
+
+        $lead->refresh();
+        $this->assertEquals('Opened', $lead->status);
+        $this->assertDatabaseHas('lead_activities', [
+            'lead_id' => $lead->id,
+            'user_id' => $engineer->id,
+            'kind' => 'status',
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'entity_type' => 'Lead',
+            'entity_id' => $lead->id,
+            'action' => 'status_change',
+        ]);
+    }
+
+    public function test_lead_created_by_super_admin_does_not_auto_change_to_opened_on_engineer_view(): void
+    {
+        $superAdmin = User::where('role_name', 'super_admin')->firstOrFail();
+        $engineer = User::where('role_name', 'engineer')->firstOrFail();
+        $branch = Branch::firstOrFail();
+
+        $lead = Lead::create([
+            'lead_number' => Lead::nextLeadNumber(),
+            'lead_date' => now()->toDateString(),
+            'customer_name' => 'Admin Client',
+            'company_name' => 'Admin Construction',
+            'phone' => '9645143507',
+            'email' => 'adminclient@example.com',
+            'department' => 'construction',
+            'branch_id' => $branch->id,
+            'created_by_id' => $superAdmin->id,
+            'source' => 'Website',
+            'status' => 'New',
+            'stage' => 'new',
+            'subject' => 'Direct Admin Lead',
+            'assigned_engineer_id' => $engineer->id,
+        ]);
+
+        $this->actingAs($engineer);
+        $this->get(route('leads.show', $lead))->assertOk();
+
+        $lead->refresh();
+        $this->assertEquals('New', $lead->status);
     }
 }

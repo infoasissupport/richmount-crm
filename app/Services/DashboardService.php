@@ -246,7 +246,7 @@ class DashboardService
             ->get();
 
         // Stage 1: New Leads
-        $newItems = $leads->filter(fn($l) => in_array($l->status, ['new', 'contacted']))->values();
+        $newItems = $leads->filter(fn($l) => in_array(strtolower((string) $l->status), ['new', 'contacted', 'opened']))->values();
 
         // Stage 2: Draft Quotations / Proposals
         $draftItems = $leads->filter(fn($l) => $l->status === 'proposal')->values();
@@ -463,7 +463,12 @@ class DashboardService
 
         // Status filter
         if (!empty($filters['status'])) {
-            $query->where('status', strtolower($filters['status']));
+            $status = strtolower($filters['status']);
+            if (in_array($status, ['revision req.', 'revision req', 'revision required', 'rejected'], true)) {
+                $query->whereIn('status', ['Revision Req.', 'Rejected', 'Revision Required', 'rejected']);
+            } else {
+                $query->whereRaw('LOWER(status) = ?', [$status]);
+            }
         }
 
         // Date Period filter

@@ -37,3 +37,4 @@ class CompanyCard extends Model
         return $this->card_name;
     }
 }
+

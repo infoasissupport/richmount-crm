@@ -43,9 +43,10 @@ class QuotationApprovedNotification extends Notification
             'quote_number' => $this->quotation->quote_number,
             'title' => "Quotation Approved: {$this->quotation->quote_number}",
             'text' => "Quotation {$this->quotation->quote_number} for {$client} (AED {$grandTotal}) approved by {$this->approver->name}",
-            'link' => route('quotations.builder', ['id' => $this->quotation->id]),
+            'link' => route('quotations.builder', ['id' => $this->quotation->id], false),
             'approved_by' => $this->approver->name,
             'created_at' => now()->toIso8601String(),
         ];
     }
 }
+

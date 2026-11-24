@@ -67,12 +67,17 @@
                             </svg>
                             <select name="status" id="recentStatus" aria-label="Filter by status" onchange="document.getElementById('recentFilterForm').submit()">
                                 <option value="">All Status</option>
-                                <option value="new" {{ request('status') === 'new' ? 'selected' : '' }}>New</option>
-                                <option value="contacted" {{ request('status') === 'contacted' ? 'selected' : '' }}>Contacted</option>
-                                <option value="proposal" {{ request('status') === 'proposal' ? 'selected' : '' }}>Proposal</option>
-                                <option value="negotiation" {{ request('status') === 'negotiation' ? 'selected' : '' }}>Negotiation</option>
-                                <option value="won" {{ request('status') === 'won' ? 'selected' : '' }}>Won</option>
-                                <option value="lost" {{ request('status') === 'lost' ? 'selected' : '' }}>Lost</option>
+                                <option value="new" {{ strcasecmp((string) request('status'), 'new') === 0 ? 'selected' : '' }}>New</option>
+                                <option value="opened" {{ strcasecmp((string) request('status'), 'opened') === 0 ? 'selected' : '' }}>Opened</option>
+                                <option value="contacted" {{ strcasecmp((string) request('status'), 'contacted') === 0 ? 'selected' : '' }}>Contacted</option>
+                                <option value="proposal" {{ strcasecmp((string) request('status'), 'proposal') === 0 ? 'selected' : '' }}>Proposal</option>
+                                <option value="pending approval" {{ strcasecmp((string) request('status'), 'pending approval') === 0 ? 'selected' : '' }}>Pending Approval</option>
+                                <option value="approved" {{ strcasecmp((string) request('status'), 'approved') === 0 ? 'selected' : '' }}>Approved</option>
+                                <option value="revision req." {{ in_array(strtolower((string) request('status')), ['revision req.', 'revision req', 'revision required', 'rejected'], true) ? 'selected' : '' }}>Revision Req.</option>
+                                <option value="negotiation" {{ strcasecmp((string) request('status'), 'negotiation') === 0 ? 'selected' : '' }}>Negotiation</option>
+                                <option value="won" {{ strcasecmp((string) request('status'), 'won') === 0 ? 'selected' : '' }}>Won</option>
+                                <option value="lost" {{ strcasecmp((string) request('status'), 'lost') === 0 ? 'selected' : '' }}>Lost</option>
+                                <option value="closed" {{ strcasecmp((string) request('status'), 'closed') === 0 ? 'selected' : '' }}>Closed</option>
                             </select>
                         </span>
 

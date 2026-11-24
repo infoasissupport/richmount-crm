@@ -43,7 +43,7 @@ class LeadAssignedNotification extends Notification
             'lead_number' => $this->lead->lead_number,
             'title' => "New Lead Assigned: {$this->lead->lead_number}",
             'text' => "{$client}{$subject} assigned to you by {$assignerName}",
-            'link' => route('leads.show', $this->lead),
+            'link' => route('leads.show', $this->lead, false),
             'assigned_by' => $assignerName,
             'created_at' => now()->toIso8601String(),
         ];

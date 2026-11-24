@@ -67,6 +67,47 @@ class DashboardTest extends TestCase
         $this->assertContains('invoiced', $keys);
     }
 
+    public function test_accountant_only_sees_awarded_leads(): void
+    {
+        $accountant = User::where('role_name', 'accountant')->first();
+        $this->actingAs($accountant);
+
+        $response = $this->get('/');
+        $response->assertOk();
+
+        $recentLeads = $response->viewData('recentLeads');
+        $this->assertNotEmpty($recentLeads);
+
+        foreach ($recentLeads as $lead) {
+            $isAwarded = $lead->stage === 'awarded' || strtolower((string) $lead->status) === 'won';
+            $this->assertTrue($isAwarded, "Accountant should only see awarded leads, but saw {$lead->lead_number} ({$lead->stage} / {$lead->status})");
+        }
+
+        // Verify unawarded leads are excluded
+        $nonAwardedLead = Lead::whereNotIn('stage', ['awarded'])
+            ->where('status', '!=', 'Won')
+            ->first();
+
+        if ($nonAwardedLead) {
+            $this->assertFalse(
+                $recentLeads->pluck('id')->contains($nonAwardedLead->id),
+                "Recent leads for accountant should not include non-awarded lead {$nonAwardedLead->lead_number}"
+            );
+
+            // Accountant cannot view a non-awarded lead details page
+            $this->get(route('leads.show', $nonAwardedLead))->assertForbidden();
+        }
+
+        // Accountant can view an awarded lead details page
+        $awardedLead = Lead::where(function ($q) {
+            $q->where('stage', 'awarded')->orWhere('status', 'Won');
+        })->first();
+
+        if ($awardedLead) {
+            $this->get(route('leads.show', $awardedLead))->assertOk();
+        }
+    }
+
     public function test_dashboard_recent_leads_filters_by_search_and_status(): void
     {
         $superAdmin = User::where('role_name', 'super_admin')->first();

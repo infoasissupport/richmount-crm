@@ -57,11 +57,19 @@ class Lead extends Model
     /**
      * Scope to enforce role visibility rules.
      * The engineer sees only assigned leads. When marked Sent/Closed, it disappears from engineer view.
+     * The accountant sees only awarded leads.
      */
     public function scopeAccessibleBy(Builder $query, User $user): Builder
     {
-        if ($user->isSuperAdmin() || $user->isAccountant()) {
+        if ($user->isSuperAdmin()) {
             return $query;
+        }
+
+        if ($user->isAccountant()) {
+            return $query->where(function ($q) {
+                $q->where('stage', 'awarded')
+                  ->orWhere('status', 'Won');
+            });
         }
 
         if ($user->isEstimation()) {
@@ -147,18 +155,74 @@ class Lead extends Model
     }
 
     /**
+     * Display label for the lead status.
+     */
+    public function statusLabel(): string
+    {
+        return match (strtolower(trim((string) $this->status))) {
+            'rejected', 'revision req.', 'revision req', 'revision required' => 'Revision Req.',
+            'pending', 'pending approval' => 'Pending Approval',
+            'draft' => 'Draft',
+            'proposal' => 'Proposal',
+            'new' => 'New',
+            'opened' => 'Opened',
+            'contacted' => 'Contacted',
+            'negotiation' => 'Negotiation',
+            'won', 'awarded' => 'Won',
+            'closed', 'sent' => 'Closed',
+            'lost' => 'Lost',
+            default => ucwords($this->status),
+        };
+    }
+
+    /**
      * Pill tone for the lead status (matches the .pill-* classes).
      */
     public function statusTone(): string
     {
-        return match (strtolower($this->status)) {
+        return match (strtolower(trim((string) $this->status))) {
             'new' => 'green',
+            'opened' => 'blue',
             'contacted' => 'blue',
-            'proposal' => 'amber',
+            'draft', 'proposal' => 'amber',
+            'pending', 'pending approval' => 'purple',
+            'approved' => 'green',
+            'rejected', 'revision req.', 'revision req', 'revision required' => 'red',
             'negotiation' => 'purple',
-            'won' => 'primary',
+            'sent', 'closed' => 'gray',
+            'won', 'awarded' => 'primary',
+            'lost' => 'red',
             default => 'gray',
         };
+    }
+
+    /**
+     * Mark the lead as Opened if opened by an engineer and created by an estimation user while in New status.
+     */
+    public function markOpenedByEngineer(User $user): bool
+    {
+        if ($user->isEngineer() && strtolower((string) $this->status) === 'new') {
+            $creator = $this->createdBy;
+            if ($creator && $creator->isEstimation()) {
+                $this->update(['status' => 'Opened']);
+
+                $this->activities()->create([
+                    'user_id' => $user->id,
+                    'kind' => 'status',
+                    'text' => "Lead opened by assigned engineer {$user->name}",
+                ]);
+
+                \App\Services\AuditService::log(
+                    'status_change',
+                    $this,
+                    "Lead {$this->lead_number} status changed from New to Opened upon view by engineer {$user->name}"
+                );
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

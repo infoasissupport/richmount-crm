@@ -8,6 +8,7 @@ use App\Models\QuotationAttachment;
 use App\Models\QuotationHistory;
 use App\Models\User;
 use App\Notifications\QuotationApprovedNotification;
+use App\Notifications\QuotationRejectedNotification;
 use App\Notifications\QuotationSubmittedNotification;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -73,12 +74,17 @@ class QuotationService
             $quote->recalculateTotals();
             $this->syncAttachments($quote, $data);
 
-            // Lead stage update
+            // Lead stage and status update
+            $leadUpdates = [];
             if ($lead->stage === 'new') {
-                $lead->update([
-                    'stage' => 'draft',
-                    'stage_date' => now(),
-                ]);
+                $leadUpdates['stage'] = 'draft';
+                $leadUpdates['stage_date'] = now();
+            }
+            if (in_array(strtolower((string) $lead->status), ['new', 'opened', 'draft'])) {
+                $leadUpdates['status'] = 'Proposal';
+            }
+            if (!empty($leadUpdates)) {
+                $lead->update($leadUpdates);
             }
 
             QuotationHistory::create([
@@ -305,6 +311,10 @@ class QuotationService
             'status' => 'pending',
         ]);
 
+        $quotation->lead?->update([
+            'status' => 'Pending Approval',
+        ]);
+
         QuotationHistory::create([
             'quotation_id' => $quotation->id,
             'user_id' => $author->id,
@@ -370,6 +380,10 @@ class QuotationService
             'rejection_reason' => null,
         ]);
 
+        $quotation->lead?->update([
+            'status' => 'Approved',
+        ]);
+
         QuotationHistory::create([
             'quotation_id' => $quotation->id,
             'user_id' => $approver->id,
@@ -405,6 +419,16 @@ class QuotationService
             'rejection_reason' => $reason,
         ]);
 
+        $quotation->lead?->update([
+            'status' => 'Revision Req.',
+        ]);
+
+        $quotation->lead?->activities()->create([
+            'user_id' => $approver->id,
+            'kind' => 'status',
+            'text' => "Quotation {$quotation->quote_number} rejected: {$reason}",
+        ]);
+
         QuotationHistory::create([
             'quotation_id' => $quotation->id,
             'user_id' => $approver->id,
@@ -413,6 +437,19 @@ class QuotationService
         ]);
 
         AuditService::log('rejected', $quotation, "Rejected quotation {$quotation->quote_number} - {$reason}");
+
+        $quotation->loadMissing(['lead.assignedEngineer', 'preparedBy']);
+        $recipients = collect([
+            $quotation->lead?->assignedEngineer,
+            $quotation->preparedBy,
+        ])
+            ->filter()
+            ->unique('id')
+            ->reject(fn (User $u) => $u->id === $approver->id);
+
+        foreach ($recipients as $recipient) {
+            $recipient->notify(new QuotationRejectedNotification($quotation, $approver, $reason));
+        }
 
         return $quotation;
     }
@@ -585,9 +622,12 @@ class QuotationService
                 ]);
             }
 
-            // Sync lead stage back to draft
-            if ($target->lead && in_array($target->lead->stage, ['approved', 'sent'])) {
-                $target->lead->update(['stage' => 'draft']);
+            // Sync lead stage and status back to draft / proposal
+            if ($target->lead) {
+                $target->lead->update([
+                    'stage' => 'draft',
+                    'status' => 'Proposal',
+                ]);
             }
 
             $actionText = $wasSent

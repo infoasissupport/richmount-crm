@@ -9,15 +9,20 @@ class LeadPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->can('leads.view');
+        return $user->can('leads.view') || $user->isAccountant();
     }
 
     public function view(User $user, Lead $lead): bool
     {
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($user->isAccountant()) {
+            return $lead->stage === 'awarded' || strtolower((string) $lead->status) === 'won';
+        }
+
         if ($user->can('leads.view')) {
-            if ($user->isSuperAdmin() || $user->isAccountant()) {
-                return true;
-            }
             if ($user->isEstimation()) {
                 return $user->canAccessBranch($lead->branch_id);
             }

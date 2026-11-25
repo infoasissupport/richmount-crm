@@ -128,7 +128,6 @@ class QuotationController extends Controller
      */
     public function builder(Request $request): View|RedirectResponse
     {
-        $this->authorize('create', Quotation::class);
         $user = $request->user();
 
         $quote = null;
@@ -139,8 +138,10 @@ class QuotationController extends Controller
             $this->authorize('view', $quote);
             $lead = $quote->lead;
         } elseif ($request->filled('lead')) {
+            $this->authorize('create', Quotation::class);
             $lead = Lead::accessibleBy($user)->with('branch')->findOrFail($request->lead);
         } else {
+            $this->authorize('create', Quotation::class);
             // Find first available lead
             $lead = Lead::accessibleBy($user)->where('stage', 'new')->latest()->first()
                 ?? Lead::accessibleBy($user)->latest()->first();

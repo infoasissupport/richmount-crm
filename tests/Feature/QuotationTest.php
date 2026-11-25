@@ -890,4 +890,35 @@ class QuotationTest extends TestCase
         $this->assertEquals((string) $expectedTotal, (string) $kpis['quotes']['value']);
         $this->assertGreaterThanOrEqual(1, (int) $kpis['sent_quotes']['value']);
     }
+
+    public function test_accountant_can_view_approved_and_awarded_quotations_in_builder_preview(): void
+    {
+        $accountant = User::where('role_name', 'accountant')->first();
+        $this->actingAs($accountant);
+
+        // Awarded quote should be viewable in builder preview
+        $awardedQuote = Quotation::where('status', 'awarded')->first();
+        if ($awardedQuote) {
+            $response = $this->get("/quotations/builder?id={$awardedQuote->id}&preview=1");
+            $response->assertOk();
+            $response->assertSee($awardedQuote->quote_number);
+        }
+
+        // Approved quote should be viewable in builder preview
+        $approvedQuote = Quotation::where('status', 'approved')->first();
+        if ($approvedQuote) {
+            $response = $this->get("/quotations/builder?id={$approvedQuote->id}&preview=1");
+            $response->assertOk();
+            $response->assertSee($approvedQuote->quote_number);
+        }
+
+        // Draft or rejected quote must be forbidden (403) for accountant
+        $draftOrRejectedQuote = Quotation::whereIn('status', ['draft', 'pending', 'rejected'])->first();
+        if ($draftOrRejectedQuote) {
+            $this->get("/quotations/builder?id={$draftOrRejectedQuote->id}&preview=1")->assertForbidden();
+        }
+
+        // Creating a new quote must be forbidden (403) for accountant
+        $this->get('/quotations/builder')->assertForbidden();
+    }
 }

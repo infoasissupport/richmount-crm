@@ -261,10 +261,12 @@
                                 </span>
                             </div>
                         @endif
+                        @can('view', $lead)
                         <a class="link-btn" href="{{ route('leads.show', $lead) }}" target="_blank">
                             Open lead
                             <svg class="ic sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-right"/></svg>
                         </a>
+                        @endcan
                     </header>
 
                     <dl class="kv cols-2" id="qLeadKv">
